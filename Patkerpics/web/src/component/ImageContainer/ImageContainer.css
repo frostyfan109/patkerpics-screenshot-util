@@ -1,0 +1,107 @@
+.ImageContainer {
+    padding: 1rem;
+}
+.image-grid-container {
+    margin-bottom: 2rem;
+}
+.image-grid-container:last-child {
+    margin-bottom: 0 !important;
+}
+.image-grid {
+    display: grid;
+    grid-column-gap: 1rem;
+    grid-row-gap: 1rem;
+    grid-auto-rows: minmax(min-content, max-content);
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    /* display: flex; */
+    /* flex-wrap: wrap; */
+}
+.image-grid > .image-container {
+    min-width: 0px;
+    height: 150px;
+    /* display: flex; */
+    /* justify-content: center; */
+    /* margin: 10px; */
+}
+.image-grid .card {
+    width: 100%;
+    height: 150px;
+    padding: 0.25rem;
+    padding-bottom: 0;
+    transition: filter .25s;
+    position: initial;
+}
+.image-grid .card-body {
+    padding: 0.5rem;
+    flex-grow: 0;
+}
+.image-grid .card-title {
+    font-weight: normal;
+    font-size: 1rem;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    margin: 0;
+}
+.image-grid .card:hover {
+    filter: brightness(85%);
+}
+.image-grid .card-img-box {
+    border-top-left-radius: 2.5px;
+    border-top-right-radius: 2.5px;
+    flex-grow: 1;
+    background-size: cover;
+}
+.image-grid .card:hover .kebab-container {
+    opacity: 1;
+    pointer-events: initial;
+}
+.kebab-container {
+    position: absolute !important;
+    top: 2.5%;
+    right: 1.25%;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .25s, color .25s;
+}
+.kebab-container > button {
+    all: unset !important;
+}
+.kebab-container > .dropdown-menu {
+}
+.kebab {
+    color: rgb(200, 200, 200);
+}
+.kebab:hover {
+    color: rgb(180, 180, 180);
+}
+@media (max-width: 575.98px) {
+    .image-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+  }
+/* @media (max-width: 575.98px) {
+    .image-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+@media (min-width: 576px) {
+    .image-grid {
+        grid-template-columns: 1fr 1fr 1fr 1fr;
+    }
+}
+@media (min-width: 768px) {
+    .image-grid {
+        grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+    }
+}
+@media (min-width: 992px) {
+    .image-grid {
+        grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr;
+    }
+}
+@media (min-width: 1200px) {
+    .image-grid {
+        grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
+    }
+} */

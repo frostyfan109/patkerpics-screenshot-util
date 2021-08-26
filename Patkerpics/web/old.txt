@@ -1,0 +1,46 @@
+const createEventSource = (): EventSource => {
+            const eventSource = new EventSource(BASE_API_URL + "/imagesPoll", {
+                headers : this.JWTAccessHeader()
+            });
+            eventSource.addEventListener("initialState", async (event: any) => {
+                console.log("Initial images");
+                const images: image[] = JSON.parse(event.data);
+                for (let i=0;i<images.length;i++) {
+                    images[i] = await loadImage(images[i]);
+                }
+                setInitialImages(images);
+                // images.length > 0 ? images.forEach(async (image: image): Promise<void> => {
+                //     addImage(await loadImage(image));
+                // }) : removeImage({
+                //     id: -1,
+                //     url: "",
+                //     timestamp: 0,
+                //     title: ""
+                // });
+                // Removes an image (with an invalid id), thereby changing the image[] in the application's state
+                // from null to an empty array (indicating that images have loaded, but there are none).
+            });
+            eventSource.addEventListener("addImage", async (event: any) => {
+                console.log("Received add image event");
+                const image: image = JSON.parse(event.data);
+                addImage(await loadImage(image));
+            });
+            eventSource.addEventListener("removeImage", (event: any) => {
+                console.log("Received remove image event");
+                // const image: image = JSON.parse(event.data);
+            });
+            return eventSource;
+        }
+
+        let eventSource = createEventSource();
+        const callback = () => {
+            eventSource.close();
+            eventSource = createEventSource();
+        };
+        this.onTokenRefresh(callback);
+        return {
+            stop: () => {
+                this.removeOnTokenRefresh(callback);
+                eventSource.close();
+            }
+        };

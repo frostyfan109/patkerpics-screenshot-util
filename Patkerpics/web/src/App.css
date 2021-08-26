@@ -1,0 +1,27 @@
+html, body, #root, .App {
+  height: 100%;
+  width: 100%;
+}
+body {
+  overflow: auto;
+}
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+input.no-style {
+  border: none;
+  outline: none;
+  background: transparent;
+  appearance: none;
+}
+.spin {
+  animation: spin 1s infinite;
+}
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

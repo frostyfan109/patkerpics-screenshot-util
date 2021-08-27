@@ -1,11 +1,12 @@
 import React, { Component, useState } from 'react';
+import { connect } from 'react-redux';
 import classNames from 'classnames';
 import writtenForm from 'number-to-words';
-import { applicationInterface, image as ImageType } from '../../store/reducers/application';
+import { applicationInterface, image as ImageType, userData } from '../../store/reducers/application';
 import './ImageContainer.css';
-import { Card } from 'react-bootstrap';
+import { Card, Button } from 'react-bootstrap';
 import { Dropdown, DropdownMenu, DropdownToggle, DropdownItem } from 'reactstrap';
-import { FaEllipsisV } from 'react-icons/fa';
+import { FaEllipsisV, FaImages, FaCircle } from 'react-icons/fa';
 import { withRouter } from 'react-router-dom';
 import { RouteComponentProps } from 'react-router';
 import Infinite from 'react-infinite';
@@ -85,6 +86,7 @@ const Thumbnail = withRouter(class extends Component<ThumbnailProps, {}> {
 
 interface Props {
     images: applicationInterface["images"],
+    userData: userData,
     className?: string
 };
 
@@ -92,14 +94,31 @@ interface State {
 
 };
 
-export default class ImageContainer extends Component<Props, State> {
+export default connect(
+    (state: any) => ({
+        userData: state.application.userData
+    })
+)(class ImageContainer extends Component<Props, State> {
     render() {
         return (
             <div className={classNames("ImageContainer", this.props.className)}>
                 {
                     this.props.images !== null && (this.props.images.length === 0 ? (
                         <div className="h-100 d-flex justify-content-center align-items-center">
-                            <h6>No images</h6>
+                            <div className="blank-state d-flex flex-column align-items-center">
+                                <span style={{display: "grid", placeItems: "center"}}>
+                                    <FaCircle style={{fontSize: "48px", gridArea: "1 / 1"}} className="text-primary"/>
+                                    <FaImages style={{fontSize: "28px", gridArea: "1 / 1", color: "white"}}/>
+                                </span>
+                                <br/>
+                                <h6>You haven't uploaded anything yet.</h6>
+                                <span className="text-muted mt-1 d-flex justify-content-center align-items-center">
+                                    Get started by&nbsp;
+                                    <a href="javascript:void(0);">installing the program</a>
+                                    &nbsp;for desktop or&nbsp;
+                                    <a href="javascript:void(0);">uploading images</a>.
+                                </span>
+                            </div> 
                         </div>
                     ) : (() => {
                         const images: ImageType[] = this.props.images as ImageType[];
@@ -180,4 +199,4 @@ export default class ImageContainer extends Component<Props, State> {
             </div>
         );
     }
-}
+});

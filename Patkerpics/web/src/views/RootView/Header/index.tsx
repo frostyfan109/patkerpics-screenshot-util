@@ -1,21 +1,28 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import { Navbar, Nav, Form, Button, Modal, Alert, FormControl } from 'react-bootstrap';
+import { Navbar, Nav, Form, Button, Modal, Alert, FormControl, Dropdown, DropdownButton } from 'react-bootstrap';
 import { LinkContainer } from 'react-router-bootstrap';
 import { FaCameraRetro } from 'react-icons/fa';
+import Avatar from 'react-avatar';
 import { login, logout, register } from '../../../store/actions';
 import { loginInterface as loginStateInterface } from '../../../store/reducers/login';
+import { userData } from '../../../store/reducers/application';
 import { WEBSITE_NAME } from '../../../config';
 import Cookies from 'js-cookie';
 import User from '../../../api/user';
 import { APIResponse } from '../../../api';
 
 interface HeaderProps {
-    logout: Function,
+    logout: Function
+    userData: userData
     loggedIn: boolean
 };
 
-class Header extends Component<HeaderProps, {}> {
+const Header = connect(
+    (state: any) => ({
+        userData: state.application.userData
+    })
+)(class extends Component<HeaderProps, {}> {
     private loginModal = React.createRef<LoginModalClass>();
     constructor(props: HeaderProps) {
         super(props);
@@ -51,10 +58,13 @@ class Header extends Component<HeaderProps, {}> {
                                 <Button variant="outline-primary" className="ml-2" onClick={(): void => {this.openLoginModal(true);}}>Sign up</Button>
                                 </>
                             ) : (
-                                <>
-                                <FormControl placeholder="Search captures" className="mr-2"/>
-                                <Button variant="secondary" onClick={(): void => {this.props.logout();}}>Logout</Button>
-                                </>
+                                this.props.userData && (
+                                    <>
+                                    <FormControl placeholder="Search captures" className="mr-2"/>
+                                    <AvatarDropdown data={this.props.userData}/>
+                                    {/* <Button variant="secondary" onClick={(): void => {this.props.logout();}}>Logout</Button> */}
+                                    </>
+                                )
                             )
                         }
                     </Form>
@@ -63,7 +73,23 @@ class Header extends Component<HeaderProps, {}> {
             </>
         );
     }
+});
+interface ADP {
+    data: userData
+};
+interface ADS {
+    
 }
+class AvatarDropdown extends Component<ADP, ADS> {
+    constructor(props: ADP) {
+        super(props);
+        
+        this.state = {
+
+        };
+    }
+}
+
 interface LoginModalProps {
     login: Function,
     register: Function,

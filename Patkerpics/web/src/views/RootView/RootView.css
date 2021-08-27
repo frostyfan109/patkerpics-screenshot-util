@@ -5,3 +5,9 @@
 .login-dialog {
     max-width: 500px !important;
 }
+#avatarDropdown {
+    cursor: pointer;
+}
+#avatarDropdown::after {
+    display: none;
+}

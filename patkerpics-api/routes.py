@@ -3,8 +3,9 @@ from flask import Response, request, send_file, stream_with_context, make_respon
 from flask_jwt_extended import (
     JWTManager, create_access_token, create_refresh_token,
     jwt_required, jwt_refresh_token_required, get_jwt_identity,
-    get_raw_jwt, set_access_cookies, set_refresh_cookies, unset_access_cookies, unset_refresh_cookies
+    get_raw_jwt, set_access_cookies, set_refresh_cookies, unset_access_cookies, unset_refresh_cookies,
 )
+from flask_jwt_extended.config import config as jwt_config
 from sqlalchemy.event import listens_for
 from models import *
 from hash import hash, verify_hash
@@ -14,6 +15,7 @@ from threading import Thread
 from time import time, sleep
 import json
 import logging
+import time
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -179,6 +181,12 @@ class Images(Resource):
             image.serialize() for image in ImageModel.query.filter_by(user_id=current_user.id).all()
         ]
 
+@api.route("/user_data")
+class UserData(Resource):
+    @jwt_required
+    def get(self):
+        current_user = UserModel.query.filter_by(username=get_jwt_identity()).first()
+        return current_user.serialize()
 
 login_parser = api.parser()
 login_parser.add_argument("username", type=str, help="Username", location="json", required=True)
@@ -202,10 +210,35 @@ class Login(Resource):
             resp = make_response(json.dumps({
                 "message": "Logged in as \"" + username + "\"",
                 "access_token": access_token,
-                "refresh_token": refresh_token
+                "refresh_token": refresh_token,
+                "user_data": current_user.serialize()
             }))
             set_access_cookies(resp, access_token)
+            # Basically just resets the cookie but with httponly=False so that the client
+            # can modify it without an API call.
+            # The original function is still called here in order to set the CSRF cookie.
+            resp.set_cookie(
+                jwt_config.access_cookie_name,
+                access_token,
+                max_age=jwt_config.cookie_max_age,
+                secure=jwt_config.cookie_secure,
+                domain=jwt_config.cookie_domain,
+                path=jwt_config.access_cookie_path,
+                samesite=jwt_config.cookie_samesite,
+                httponly=False
+            )
             set_refresh_cookies(resp, refresh_token)
+            resp.set_cookie(
+                jwt_config.refresh_cookie_name,
+                refresh_token,
+                max_age=jwt_config.cookie_max_age,
+                secure=jwt_config.cookie_secure,
+                domain=jwt_config.cookie_domain,
+                path=jwt_config.access_cookie_path,
+                samesite=jwt_config.cookie_samesite,
+                httponly=False
+            )
+
             return resp
         else:
             return {
@@ -271,9 +304,10 @@ class Register(Resource):
 class RefreshToken(Resource):
     @jwt_refresh_token_required
     def post(self):
+        print("RECEIVED REFRESH REQUEST")
         identity = get_jwt_identity()
         access_token = create_access_token(identity=identity)
-        resp = make_repsonse(json.dumps({
+        resp = make_response(json.dumps({
             "message": "Refreshed token for user \"" + identity + "\"",
             "access_token": access_token
         }))

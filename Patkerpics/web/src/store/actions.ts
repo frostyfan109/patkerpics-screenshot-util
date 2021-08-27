@@ -9,7 +9,7 @@ import {
 import User, { Callbacks } from '../api/user';
 import Cookies from 'js-cookie';
 import { initialState as initialLoginState } from './reducers/login';
-import { applicationInterface, initialState as defaultApplicationState, image } from './reducers/application';
+import { applicationInterface, initialState as defaultApplicationState, image, userData } from './reducers/application';
 import { async } from 'q';
 import { APIResponse, AuthenticationError } from '../api';
 
@@ -33,6 +33,14 @@ export function fetchApplicationState(): ThunkAction<Promise<void>, any, any, an
         // }));
     }
 }
+export function fetchUserData(): ThunkAction<Promise<void>, any, any, any> {
+    return async (dispatch: ThunkDispatch<any, any, any>, getState: Function) => {
+        const userData: userData = await User.getUserData();
+        dispatch(setApplicationState({
+            userData
+        }));
+    }
+}
 export function pageLoad(): ThunkAction<Promise<void>, any, any, any> {
     return async (dispatch: ThunkDispatch<any, any, any>) => {
         if (User.loggedIn) {
@@ -43,6 +51,7 @@ export function pageLoad(): ThunkAction<Promise<void>, any, any, any> {
 function authenticateLogin(): ThunkAction<Promise<void>, any, any, any> {
     return async (dispatch: ThunkDispatch<any, any, any>, getState: Function) => {
         dispatch(setLoggedIn(true));
+        dispatch(fetchUserData());
         const authenticationFailed = (error: AuthenticationError): void => { dispatch(logout()); };
         User.pollImages(
             (newImage: image): void => {

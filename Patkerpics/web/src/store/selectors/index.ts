@@ -7,7 +7,9 @@ export const getApplicationLoading = createSelector(
     [getApplicationState],
     (applicationState: applicationInterface) => {
         return (
-            applicationState.images === null
+            !applicationState.fetchedAllImages || 
+            // applicationState.images === null ||
+            applicationState.userData === null
         );
     }
 );

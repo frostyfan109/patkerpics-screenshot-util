@@ -6,28 +6,31 @@ import { Redirect, RouteComponentProps, withRouter } from 'react-router-dom';
 import classNames from 'classnames';
 import User from '../../api/user';
 import Loading from '../../component/Loading';
-import { image } from '../../store/reducers/application';
+import { image, userData } from '../../store/reducers/application';
 import './ImageView.css';
 import OutsideClickHandler from 'react-outside-click-handler';
 import { AuthenticationError } from '../../api';
 const InlineEdit = require('react-edit-inline2').default;
 interface P extends RouteComponentProps {
-    images: image[],
-    loggedIn: boolean,
-    addImage: Function,
-    updateImage: Function,
-    logout: Function,
+    images: image[]
+    loggedIn: boolean
+    userData: userData
+    addImage: Function
+    updateImage: Function
+    logout: Function
 }
 
 interface S {
     redirect: boolean,
-    imgSrcLoading: boolean
+    imgSrcLoading: boolean,
+    preloadImage: HTMLImageElement | null
 }
 
 export default connect(
     (state: any) => ({
         images: state.application.images,
-        loggedIn: state.login.loggedIn
+        userData: state.application.userData,
+        loggedIn: state.login.loggedIn,
     }),
     { logout, addImage, updateImage }
 )(withRouter(class extends Component<P, S> {
@@ -37,7 +40,9 @@ export default connect(
 
         this.state = {
             redirect: false,
-            imgSrcLoading: false
+            imgSrcLoading: false,
+            // Not actually used for anything other than variable persistence while loading.
+            preloadImage: null
         };
 
         this.loadImage = this.loadImage.bind(this);
@@ -60,7 +65,14 @@ export default connect(
             User.getImage(this.imageId()).then((image: image|null) => {
                 if (!this.cancelled) {
                     if (image === null) this.setState({ redirect : true });
-                    else this.props.addImage(image);
+                    else {
+                        this.props.addImage(image);
+                        const img = new Image();
+                        img.src = image.url;
+                        // Make sure the image isn't deleted in garbage collection while preloading.
+                        this.setState({ preloadImage : img });
+                        img.onload = () => this.setState({ imgSrcLoading : false });
+                    }
                 }
             }).catch((error: AuthenticationError) => {
                 console.log(error);
@@ -91,7 +103,7 @@ export default connect(
         return (
             <div className="ImageView">
                 {
-                    image === undefined ? (
+                    (image === undefined || this.props.userData === null || this.state.imgSrcLoading) ? (
                         <Loading loading={true}/>
                     ) : (() => {
                         image = image!;
@@ -111,7 +123,6 @@ export default connect(
                                     {/* <div className="image-view-img-container mx-auto"> */}
                                         <img className="image-view-img mx-auto"
                                              src={image.url}
-                                             onLoad={() => this.setState({ imgSrcLoading: false })}
                                              style={{
                                                 cursor: "pointer",
                                                 display: this.state.imgSrcLoading ? "none" : undefined
@@ -121,9 +132,9 @@ export default connect(
                                                 window.location.href = image!.url;
                                              }}
                                         />
-                                    {this.state.imgSrcLoading && (
+                                    {/* this.state.imgSrcLoading && (
                                         <Loading loading={true}/>
-                                    )}
+                                    ) */}
                                     {/* </div> */}
                                     {(() => {
                                         const prevImage: number|null = image.prev;
@@ -140,7 +151,7 @@ export default connect(
                                 <div className="image-info" style={{fontSize: "18px"}}>
                                     <div className="d-flex align-items-center mb-3">
                                         <FaUserCircle style={{fontSize: "2em", marginRight: ".5rem"}}/>
-                                        <span style={{fontSize: "1em", fontWeight: 600}}>{User.username}</span>
+                                        <span style={{fontSize: "1em", fontWeight: 600}}>{this.props.userData && this.props.userData.username}</span>
                                     </div>
                                     
                                     {/* <div className="mb-2" style={{fontSize: "1em", fontWeight: 600}}>{image.title}</div> */}

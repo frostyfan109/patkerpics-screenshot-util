@@ -2,7 +2,17 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="d4976c9c-0439-41e8-8c71-09ccb5406542" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/api.py" beforeDir="false" afterPath="$PROJECT_DIR$/api.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Patkerpics/web/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/../Patkerpics/web/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Patkerpics/web/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../Patkerpics/web/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Patkerpics/web/src/api/user.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../Patkerpics/web/src/api/user.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Patkerpics/web/src/store/actions.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../Patkerpics/web/src/store/actions.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Patkerpics/web/src/store/reducers/application.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../Patkerpics/web/src/store/reducers/application.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Patkerpics/web/src/views/ImageView/index.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../Patkerpics/web/src/views/ImageView/index.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Patkerpics/web/src/views/RootView/Header/index.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../Patkerpics/web/src/views/RootView/Header/index.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app.db" beforeDir="false" afterPath="$PROJECT_DIR$/app.db" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/routes.py" beforeDir="false" afterPath="$PROJECT_DIR$/routes.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -15,11 +25,11 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file pinned="false" current-in-tab="false">
+      <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/routes.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="240">
-              <caret line="153" column="14" selection-start-line="153" selection-start-column="8" selection-end-line="153" selection-end-column="14" />
+            <state relative-caret-position="308">
+              <caret line="306" column="41" selection-start-line="306" selection-start-column="41" selection-end-line="306" selection-end-column="41" />
               <folding>
                 <element signature="e#0#51#0" expanded="true" />
               </folding>
@@ -27,38 +37,11 @@
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/credentials.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state>
-              <caret column="82" selection-start-column="82" selection-end-column="82" />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/api.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="119">
-              <caret line="7" column="38" selection-start-line="7" selection-start-column="38" selection-end-line="7" selection-end-column="38" />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/config.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state>
-              <caret column="22" selection-start-column="22" selection-end-column="22" />
-            </state>
-          </provider>
-        </entry>
-      </file>
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/models.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="104">
-              <caret line="104" column="57" selection-start-line="104" selection-start-column="57" selection-end-line="104" selection-end-column="57" />
+            <state relative-caret-position="240">
+              <caret line="121" column="17" selection-start-line="121" selection-start-column="17" selection-end-line="121" selection-end-column="17" />
               <folding>
                 <element signature="e#0#9#0" expanded="true" />
               </folding>
@@ -77,36 +60,36 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>cors_allowed_origins</find>
-      <find>origins</find>
-      <find>postimage</find>
-      <find>room</find>
-      <find>socket.emit(</find>
-      <find>thread.</find>
-      <find>server_def</find>
-      <find>db</find>
-      <find>imagemodel</find>
-      <find>&lt;str:</find>
-      <find>jwt</find>
-      <find>set_access</find>
-      <find>resp</find>
-      <find>login</find>
-      <find>response</find>
-      <find>api</find>
-      <find>from api import</find>
-      <find>set_cookie</find>
-      <find>raw_image</find>
-      <find>cookies</find>
-      <find>make_response</find>
-      <find>refresh</find>
-      <find>logout</find>
-      <find>images</find>
-      <find>image</find>
-      <find>image(</find>
-      <find>/image</find>
-      <find>image.open</find>
       <find>img</find>
       <find>delete</find>
+      <find>USER</find>
+      <find>class usermodel</find>
+      <find>class usermodle</find>
+      <find>image.save</find>
+      <find>def delete</find>
+      <find>usermodel</find>
+      <find>update_</find>
+      <find>session.</find>
+      <find>self.update</find>
+      <find>datetime</find>
+      <find>next</find>
+      <find>cookie</find>
+      <find>set_cookie</find>
+      <find>set_access</find>
+      <find>set_refresh</find>
+      <find>access_</find>
+      <find>access_cookie_name</find>
+      <find>config</find>
+      <find>config as</find>
+      <find>max_age</find>
+      <find>.serialize</find>
+      <find>user_id</find>
+      <find>def post</find>
+      <find>update_bits</find>
+      <find>class usermo</find>
+      <find>image</find>
+      <find>sleep</find>
+      <find>/refresh</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
@@ -121,10 +104,10 @@
         <option value="$PROJECT_DIR$/config.py" />
         <option value="$PROJECT_DIR$/main.py" />
         <option value="$PROJECT_DIR$/requirements.txt" />
-        <option value="$PROJECT_DIR$/routes.py" />
-        <option value="$PROJECT_DIR$/models.py" />
         <option value="$PROJECT_DIR$/api.py" />
         <option value="$PROJECT_DIR$/credentials.py" />
+        <option value="$PROJECT_DIR$/models.py" />
+        <option value="$PROJECT_DIR$/routes.py" />
       </list>
     </option>
   </component>
@@ -245,13 +228,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/venv/Lib/site-packages/flask_jwt_extended/utils.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="219">
-          <caret line="23" column="4" selection-start-line="23" selection-start-column="4" selection-end-line="23" selection-end-column="4" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/f.png" />
     <entry file="file://$PROJECT_DIR$/venv/Lib/site-packages/flask_jwt_extended/exceptions.py">
       <provider selected="true" editor-type-id="text-editor" />
@@ -259,13 +235,6 @@
     <entry file="file://$PROJECT_DIR$/images/1/2.jpg" />
     <entry file="file://$PROJECT_DIR$/images/1/0.png" />
     <entry file="file://$PROJECT_DIR$/images/1/1.jpg" />
-    <entry file="file://$PROJECT_DIR$/venv/Lib/site-packages/flask_sqlalchemy/__init__.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="625">
-          <caret line="118" column="6" selection-start-line="118" selection-start-column="6" selection-end-line="118" selection-end-column="23" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/venv/Lib/site-packages/flask/globals.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="529">
@@ -357,27 +326,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/db.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="68">
-          <caret line="4" selection-start-line="4" selection-end-line="4" />
-          <folding>
-            <element signature="e#0#39#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/venv/Lib/site-packages/flask/app.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="219">
           <caret line="2027" column="28" selection-start-line="2027" selection-start-column="28" selection-end-line="2027" selection-end-column="28" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/venv/Lib/site-packages/flask/helpers.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="244">
-          <caret line="222" column="29" selection-start-line="222" selection-start-column="29" selection-end-line="222" selection-end-column="29" />
         </state>
       </provider>
     </entry>
@@ -398,6 +350,13 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/credentials.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state>
+          <caret column="82" selection-start-column="82" selection-end-column="82" />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/config.py">
       <provider selected="true" editor-type-id="text-editor">
         <state>
@@ -405,22 +364,19 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/models.py">
+    <entry file="file://$PROJECT_DIR$/venv/Lib/site-packages/flask_sqlalchemy/__init__.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="104">
-          <caret line="104" column="57" selection-start-line="104" selection-start-column="57" selection-end-line="104" selection-end-column="57" />
-          <folding>
-            <element signature="e#0#9#0" expanded="true" />
-          </folding>
+        <state relative-caret-position="240">
+          <caret line="1005" column="25" selection-start-line="1005" selection-start-column="25" selection-end-line="1005" selection-end-column="25" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/routes.py">
+    <entry file="file://$PROJECT_DIR$/db.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="240">
-          <caret line="153" column="14" selection-start-line="153" selection-start-column="8" selection-end-line="153" selection-end-column="14" />
+        <state relative-caret-position="153">
+          <caret line="9" column="10" lean-forward="true" selection-start-line="9" selection-start-column="10" selection-end-line="9" selection-end-column="10" />
           <folding>
-            <element signature="e#0#51#0" expanded="true" />
+            <element signature="e#0#39#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -432,10 +388,65 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/credentials.py">
+    <entry file="file://$PROJECT_DIR$/venv/Lib/site-packages/flask/helpers.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state>
-          <caret column="82" selection-start-column="82" selection-end-column="82" />
+        <state relative-caret-position="-334">
+          <caret line="176" column="4" selection-start-line="176" selection-start-column="4" selection-end-line="176" selection-end-column="4" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/venv/Lib/site-packages/werkzeug/wrappers/base_response.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1294">
+          <caret line="492" column="11" lean-forward="true" selection-start-line="492" selection-start-column="11" selection-end-line="492" selection-end-column="11" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/venv/Lib/site-packages/flask/wrappers.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="115">
+          <caret line="102" column="20" lean-forward="true" selection-start-line="102" selection-start-column="20" selection-end-line="102" selection-end-column="20" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/venv/Lib/site-packages/werkzeug/wrappers/response.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="359">
+          <caret line="65" column="11" selection-start-line="65" selection-start-column="11" selection-end-line="65" selection-end-column="11" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/venv/Lib/site-packages/flask_jwt_extended/config.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="48">
+          <caret line="96" column="26" selection-start-line="96" selection-start-column="8" selection-end-line="96" selection-end-column="26" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/venv/Lib/site-packages/flask_jwt_extended/utils.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="159">
+          <caret line="259" column="4" selection-start-line="259" selection-start-column="4" selection-end-line="259" selection-end-column="4" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/models.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="240">
+          <caret line="121" column="17" selection-start-line="121" selection-start-column="17" selection-end-line="121" selection-end-column="17" />
+          <folding>
+            <element signature="e#0#9#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/routes.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="308">
+          <caret line="306" column="41" selection-start-line="306" selection-start-column="41" selection-end-line="306" selection-end-column="41" />
+          <folding>
+            <element signature="e#0#51#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>

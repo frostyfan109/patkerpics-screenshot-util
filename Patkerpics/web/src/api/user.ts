@@ -3,7 +3,7 @@ import EventSource from 'eventsource';
 import io from 'socket.io-client';
 import * as qs from 'qs';
 import { BASE_API_URL, APIResponse, AuthenticationError } from '.';
-import { image } from '../store/reducers/application';
+import { image, userData } from '../store/reducers/application';
 import { LoremIpsum } from 'lorem-ipsum';
 import Cookies from 'js-cookie';
 import { login, logout } from '../store/actions';
@@ -55,9 +55,26 @@ export default class User {
     private static refreshing: boolean = false;
     private static refreshPromise: Promise<void> = Promise.resolve();
 
-    public static get username(): string|undefined {
-        return Cookies.get("username");
+    public static get userData(): userData|undefined {
+        const userData = Cookies.get("user_data");
+        return userData ? JSON.parse(userData) : undefined;
     }
+    // Optional chaining would make this much more concise if ejecting ever happens.
+    /*
+    public static get username(): string|undefined {
+        // return this.userData && this.userData.username;
+        return "foobar";
+    }
+    public static get email(): string|undefined {
+        return this.userData && this.userData.email;
+    }
+    public static get created(): number|undefined {
+        return this.userData && this.userData.created;
+    }
+    public static get bitsUsed(): number|undefined {
+        return this.userData && this.userData.bitsUsed;
+    }
+    */
     public static get accessToken(): string|undefined {
         return Cookies.get("access_token");
     }
@@ -66,7 +83,7 @@ export default class User {
     }
     public static get loggedIn() {
         return (
-            this.username !== undefined &&
+            // this.username !== undefined &&
             this.accessToken !== undefined &&
             this.refreshToken !== undefined
         );
@@ -82,8 +99,9 @@ export default class User {
             // If access token expires in less than 60 seconds refresh it
             else {
                 const decoded = JwtDecode<{exp: number}>(this.accessToken as string);
-                if ((decoded.exp - (Date.now() / 1000)) <= 30) {
+                if ((decoded.exp - (Date.now() / 1000)) <= 30000) {
                     try {
+                        console.log("REFRESHING ACCESS");
                         const accessToken = (await axios.post(BASE_API_URL + "/refresh", {}, {
                             headers: this.JWTRefreshHeader(),
                             withCredentials: true
@@ -100,6 +118,13 @@ export default class User {
         });
         this.refreshPromise.then(() => {this.refreshing = false;});
         return this.refreshPromise;
+    }
+    public static async getUserData(): Promise<userData> {
+        await this.refresh();
+        const userData: userData = (await axios.get(BASE_API_URL + "/user_data", {
+            headers: this.JWTAccessHeader()
+        })).data;
+        return userData;
     }
     public static async deleteImage(imageId: number): Promise<void> {
         await this.refresh();
@@ -241,7 +266,7 @@ export default class User {
                 withCredentials: true
             });
             const { access_token: accessToken, refresh_token: refreshToken, message } = response.data;
-            Cookies.set("username", username);
+            // Cookies.set("username", username);
             Cookies.set("access_token", accessToken);
             Cookies.set("refresh_token", refreshToken);
             return {
@@ -250,7 +275,6 @@ export default class User {
             };
         }
         catch (error) {
-            alert(error);
             return {
                 message: error.response.data.message,
                 error: true
@@ -265,8 +289,9 @@ export default class User {
             }, {
                 withCredentials: true
             });
-            const { access_token: accessToken, refresh_token: refreshToken, message } = response.data;
-            Cookies.set("username", username);
+            const { access_token: accessToken, refresh_token: refreshToken, user_data: userData, message } = response.data;
+            // Cookies.set("username", username);
+            Cookies.set("user_data", JSON.stringify(userData));
             Cookies.set("access_token", accessToken);
             Cookies.set("refresh_token", refreshToken);
             return {
@@ -275,9 +300,8 @@ export default class User {
             };
         }
         catch (error) {
-            alert(error);
             return {
-                message: error.response.data.message,
+                message: error.response ? error.response.data.message : error.stack,
                 error: true
             };
         }
@@ -287,11 +311,14 @@ export default class User {
             this.pollingImages.stop();
             this.pollingImages = null;
         }
-        Cookies.remove("username");
+        // Cookies.remove("username");
         Cookies.remove("access_token");
         Cookies.remove("refresh_token");
         Cookies.remove("csrf_access_token");
         Cookies.remove("csrf_refresh_token");
+        Cookies.remove("access_token_cookie");
+        Cookies.remove("refresh_token_cookie");
+        Cookies.remove("user_data");
     }
     // public static async getImages(): Promise<image[]> {
     //     const images: image[] = (await axios.get(BASE_API_URL + "/images", {

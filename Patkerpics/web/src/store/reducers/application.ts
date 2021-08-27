@@ -9,7 +9,10 @@ export interface image {
     id: number,
     uid: string,
     url: string,
-    dimensions: Dimension
+    bitDepth: number,
+    dimensions: Dimension,
+    fileType: string,
+    fileSize: number,
     timestamp: number,
     title: string,
     tags: string[],
@@ -17,13 +20,22 @@ export interface image {
     next: number|null
 };
 
+export interface userData {
+    username: string,
+    email: string,
+    created: number,
+    bitsUsed: number
+}
+
 export interface applicationInterface {
     images: image[],
+    userData: userData | null
     fetchedAllImages: boolean
 };
 
 export const initialState: applicationInterface = {
     images: [],
+    userData: null,
     fetchedAllImages: false
 };
 

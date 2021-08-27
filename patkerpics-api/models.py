@@ -33,6 +33,8 @@ class UserModel(Model):
     username = db.Column(db.String(13), unique=True, nullable=False)
     password = db.Column(db.String(255), unique=False, nullable=False)
     email = db.Column(db.String(255), unique=True, nullable=False)
+    created = db.Column(db.DateTime, unique=False, nullable=False, default=datetime.now)
+    bits_used = db.Column(db.Integer, unique=False, nullable=False, default=0)
 
     def get_images(self):
         return ImageModel.query.filter_by(user_id=self.id).all()
@@ -45,7 +47,22 @@ class UserModel(Model):
     def delete(self):
         rmtree(os.path.join("images", str(self.id)))
 
-        super().save()
+        super().delete()
+
+    def update_bits(self):
+        # This should be updated to take an argument of the difference in bits.
+        # For now this is a better method since images may get deleted directly
+        # from the database causing desync in this value.
+        self.bits_used = sum([img.file_size for img in self.get_images()])
+        self.update()
+
+    def serialize(self):
+        return {
+            "username": self.username,
+            "email": self.email,
+            "created": self.created.timestamp(),
+            "bits_used": self.bits_used
+        }
 
 
 class TagModel(Model):
@@ -101,10 +118,19 @@ class ImageModel(Model):
         self.height = pil_img.height
         self.file_type = file_type
 
-        image.save(self.get_path())
+        pil_img.save(self.get_path())
+        # image.save(self.get_path())
         self.file_size = os.path.getsize(self.get_path())
 
         super().save()
+
+        UserModel.query.filter_by(id=self.user_id).first().update_bits()
+
+    def delete(self):
+        os.remove(self.get_path())
+        UserModel.query.filter_by(id=self.user_id).first().update_bits()
+
+        super().delete()
 
     def get_tags(self):
         return TagModel.query.filter_by(image_id=self.image_id).all()
@@ -133,6 +159,11 @@ class ImageModel(Model):
                 "title": self.title,
                 "tags": [tag.name for tag in self.get_tags()],
                 "uid": self.uid,
+                "bit_depth": self.bit_depth,
+                "width": self.width,
+                "height": self.height,
+                "file_type": self.file_type,
+                "file_size": self.file_size,
                 "next": next,
                 "prev": prev
             }

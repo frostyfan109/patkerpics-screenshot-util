@@ -12,11 +12,12 @@ import User from '../../api/user';
 import { AuthenticationError } from '../../api';
 
 interface Props {
-    loggedIn: boolean,
-    fetchedAllImages: boolean,
+    loggedIn: boolean
+    fetchedAllImages: boolean
+    applicationLoading: boolean
     images: image[]
-    addImages: Function,
-    setFetchedAllImages: Function,
+    addImages: Function
+    setFetchedAllImages: Function
     logout: Function
 };
 
@@ -55,7 +56,7 @@ class HomeView extends Component<Props, {}> {
             <div className="HomeView flex-grow-1">
                 {
                     this.props.loggedIn ? (
-                        !this.props.fetchedAllImages ? (
+                        this.props.applicationLoading ? (
                             <Loading loading={true}/>
                         ) : (
                             <ImageContainer className="h-100" images={this.props.images}/>

@@ -62,15 +62,23 @@
     padding: .5rem;
     margin: .25rem .25rem;
 }
+.tag-close-button-container {
+}
+.tag-close-button-container > * {
+    transition: color .25s;
+}
+.tag-close-button-container:hover > * {
+    color: rgba(200, 200, 200);
+}
 .close-tag {
-    transition: background-color .5s;
+    transition: background-color .25s;
 }
 .close-tag:hover {
-    background-color: rgba(0, 0, 0, .04) !important;
+    background-color: rgba(0, 0, 0, .05) !important;
 }
 body *.bg-none {
     background-color: transparent !important;
 }
 .cursor-initial {
     cursor: initial !important;
-  }
+}

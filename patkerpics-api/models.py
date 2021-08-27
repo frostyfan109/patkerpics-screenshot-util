@@ -2,6 +2,9 @@ import os
 from shutil import rmtree
 from datetime import datetime, timezone
 from db import db
+from secrets import token_urlsafe
+from PIL import Image
+from io import BytesIO
 
 class Model(db.Model):
     __abstract__ = True
@@ -56,6 +59,13 @@ class TagModel(Model):
             raise Exception("Tag already exists")
         super().save()
 
+def generate_image_token():
+    token = token_urlsafe(32)
+    if ImageModel.query.filter_by(uid=token).first():
+        # Recurse if the token is already in use
+        return generate_image_token()
+    else:
+        return token
 
 class ImageModel(Model):
     __tablename__ = "images"
@@ -64,17 +74,35 @@ class ImageModel(Model):
     filename = db.Column(db.String(255), unique=False, nullable=False)
     timestamp = db.Column(db.Integer, nullable=False)
     title = db.Column(db.String(255), unique=False, nullable=False)
+    uid = db.Column(db.String(32), unique=True, nullable=False, default=generate_image_token)
+    bit_depth = db.Column(db.Integer, unique=False, nullable=False)
+    width = db.Column(db.Integer, unique=False, nullable=False)
+    height = db.Column(db.Integer, unique=False, nullable=False)
+    file_size = db.Column(db.Float, unique=False, nullable=False)
+    file_type = db.Column(db.String, unique=False, nullable=False)
+
 
     """
-    Saves an image to the file system an database
+    Saves an image to the file system and database
     
     Args:
         image (werkzeug.datastructure.FileStorage): The image to be saved to the file system.
     """
     def save(self, image):
+
+        file_type = image.filename.split(".")[-1].lower()
+        pil_img = Image.open(image)
+
         self.timestamp = datetime.now(tz=timezone.utc).timestamp()
         self.filename = str(len(os.listdir(self.get_dir()))) + "." + image.filename.split(".")[-1];
+        # If the image mode is unknown for whatever reason, null it.
+        self.bit_depth = ({'1':1, 'L':8, 'P':8, 'RGB':"24", 'RGBA':32, 'CMYK':32, 'YCbCr':32, 'I':32, 'F':32}).get(pil_img.mode, -1)
+        self.width = pil_img.width
+        self.height = pil_img.height
+        self.file_type = file_type
+
         image.save(self.get_path())
+        self.file_size = os.path.getsize(self.get_path())
 
         super().save()
 
@@ -104,6 +132,7 @@ class ImageModel(Model):
                 "timestamp": self.timestamp * 1000,
                 "title": self.title,
                 "tags": [tag.name for tag in self.get_tags()],
+                "uid": self.uid,
                 "next": next,
                 "prev": prev
             }

@@ -1,8 +1,15 @@
 import { SET_APPLICATION_STATE, ADD_IMAGES, REMOVE_IMAGE, UPDATE_IMAGE, FETCHED_ALL_IMAGES } from '../actionTypes';
 
+export interface Dimension {
+    width: number,
+    height: number
+}
+
 export interface image {
     id: number,
+    uid: string,
     url: string,
+    dimensions: Dimension
     timestamp: number,
     title: string,
     tags: string[],

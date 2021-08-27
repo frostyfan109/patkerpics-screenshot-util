@@ -76,22 +76,23 @@ export default class User {
         this.refreshing = true;
 
         this.refreshPromise = new Promise(async (resolve, reject) => {
-            if (this.accessToken === undefined) {
-                reject();
+            if (this.accessToken === "undefined") {
+                reject("Access token is undefined");
             }
             // If access token expires in less than 60 seconds refresh it
             else {
-                const decoded = JwtDecode<{exp: number}>(this.accessToken);
+                const decoded = JwtDecode<{exp: number}>(this.accessToken as string);
                 if ((decoded.exp - (Date.now() / 1000)) <= 30) {
                     try {
                         const accessToken = (await axios.post(BASE_API_URL + "/refresh", {}, {
-                            headers: this.JWTRefreshHeader()
+                            headers: this.JWTRefreshHeader(),
+                            withCredentials: true
                         })).data.access_token;
                         console.log("Refreshed access token");
                         Cookies.set("access_token", accessToken);
                     } catch (e) {
-                        reject();
                         console.log("Authentication failed with error", e);
+                        reject();
                     }
                 }
             }
@@ -166,7 +167,8 @@ export default class User {
         //     headers: this.JWTAccessHeader()
         // })).data;
         // const url = URL.createObjectURL(new Blob([data]));
-        image.url = BASE_API_URL + "/raw_image/" + image.id + "?" + qs.stringify({ jwt : this.accessToken });
+        // image.url = BASE_API_URL + "/raw_image/" + image.uid + "?" + qs.stringify({ jwt : this.accessToken });
+        image.url = BASE_API_URL + "/raw_image/" + image.uid;
         return image;
     }
     public static pollImages(
@@ -182,7 +184,7 @@ export default class User {
                     transportOptions: {
                         polling: {
                             extraHeaders: this.JWTAccessHeader()
-                        }
+                        },
                     }
                 });
                 // const errorHandle = () => {
@@ -228,11 +230,40 @@ export default class User {
         };
         this.pollingImages.start();
     }
+    // Could shorten this by consolidating the overlapping login logic into a single function
+    public static async register(username: string, email: string, password: string): Promise<APIResponse> {
+        try {
+            const response = await axios.post(BASE_API_URL + "/register", {
+                username,
+                email,
+                password
+            }, {
+                withCredentials: true
+            });
+            const { access_token: accessToken, refresh_token: refreshToken, message } = response.data;
+            Cookies.set("username", username);
+            Cookies.set("access_token", accessToken);
+            Cookies.set("refresh_token", refreshToken);
+            return {
+                message,
+                error: false
+            };
+        }
+        catch (error) {
+            alert(error);
+            return {
+                message: error.response.data.message,
+                error: true
+            };
+        }
+    }
     public static async login(username: string, password: string): Promise<APIResponse> {
         try {
             const response = await axios.post(BASE_API_URL + "/login", {
                 username,
                 password
+            }, {
+                withCredentials: true
             });
             const { access_token: accessToken, refresh_token: refreshToken, message } = response.data;
             Cookies.set("username", username);
@@ -259,6 +290,8 @@ export default class User {
         Cookies.remove("username");
         Cookies.remove("access_token");
         Cookies.remove("refresh_token");
+        Cookies.remove("csrf_access_token");
+        Cookies.remove("csrf_refresh_token");
     }
     // public static async getImages(): Promise<image[]> {
     //     const images: image[] = (await axios.get(BASE_API_URL + "/images", {

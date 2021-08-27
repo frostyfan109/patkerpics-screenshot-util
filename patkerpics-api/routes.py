@@ -1,16 +1,18 @@
 from flask_restplus import Resource, fields, inputs
-from flask import Response, request, send_file, stream_with_context
+from flask import Response, request, send_file, stream_with_context, make_response
 from flask_jwt_extended import (
     JWTManager, create_access_token, create_refresh_token,
     jwt_required, jwt_refresh_token_required, get_jwt_identity,
-    get_raw_jwt
+    get_raw_jwt, set_access_cookies, set_refresh_cookies, unset_access_cookies, unset_refresh_cookies
 )
 from sqlalchemy.event import listens_for
 from models import *
 from hash import hash, verify_hash
-from api import api, jwt, socket
+from api import app, api, jwt, socket
 from db import db
+from threading import Thread
 from time import time, sleep
+import json
 import logging
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -45,7 +47,7 @@ class Users(Resource):
 
 
 @api.route("/image/<string:title>")
-class Image(Resource):
+class ImagePost(Resource):
     @jwt_required
     def post(self, title):
         image = request.files['image']
@@ -73,12 +75,12 @@ class Image(Resource):
             }, 400
 
 
-@api.route("/raw_image/<int:image_id>")
+@api.route("/raw_image/<image_uid>")
 class StaticImage(Resource):
     @jwt_required
-    def get(self, image_id):
+    def get(self, image_uid):
         current_user = UserModel.query.filter_by(username=get_jwt_identity()).first()
-        image = ImageModel.query.filter_by(user_id=current_user.id, image_id=image_id).first()
+        image = ImageModel.query.filter_by(user_id=current_user.id, uid=image_uid).first()
         if image != None:
             return send_file(image.get_path())
 
@@ -197,31 +199,43 @@ class Login(Resource):
         if verify_hash(password, current_user.password):
             access_token = create_access_token(identity=username)
             refresh_token = create_refresh_token(identity=username)
-            return {
+            resp = make_response(json.dumps({
                 "message": "Logged in as \"" + username + "\"",
                 "access_token": access_token,
                 "refresh_token": refresh_token
-            }
+            }))
+            set_access_cookies(resp, access_token)
+            set_refresh_cookies(resp, refresh_token)
+            return resp
         else:
             return {
                        "message": f"Invalid password",
                    }, 403
 
 register_parser = api.parser()
-register_parser.add_argument("username", type=str, help="Username", location="args", required=True)
-register_parser.add_argument("password", type=str, help="Password", location="args", required=True)
-register_parser.add_argument("email", type=inputs.email, help="Email", location="args", required=True)
+register_parser.add_argument("username", type=str, help="Username", location="json", required=True)
+register_parser.add_argument("password", type=str, help="Password", location="json", required=True)
+register_parser.add_argument("email", type=str, help="Email", location="json", required=True)
+# register_parser.add_argument("email", type=inputs.email(check=True), help="Email", location="args", required=True)
 @api.route("/register")
 class Register(Resource):
+    @api.expect(register_parser)
     def post(self):
         args = register_parser.parse_args()
         username = args["username"]
         password = args["password"]
-        email = args["email"].check
+        email = args["email"]
+
+        try:
+            inputs.email(check=True)(email)
+        except:
+            return {
+                "message": f"Invalid email."
+            }, 403
 
         if UserModel.query.filter_by(username=username).first():
             return {
-                "message": f"User \"{username}\" already exists",
+                "message": f"User \"{username}\" already exists.",
             }, 403
         if UserModel.query.filter_by(email=email).first():
             return {
@@ -238,11 +252,14 @@ class Register(Resource):
             user.save()
             access_token = create_access_token(identity=username)
             refresh_token = create_refresh_token(identity=username)
-            return {
+            resp = make_response(json.dumps({
                 "message": "Registered user as \"" + username + "\"",
                 "access_token": access_token,
                 "refresh_token": refresh_token
-            }
+            }))
+            set_access_cookies(resp, access_token)
+            set_refresh_cookies(resp, refresh_token)
+            return resp
         except Exception as e:
             print(e)
             return {
@@ -256,10 +273,12 @@ class RefreshToken(Resource):
     def post(self):
         identity = get_jwt_identity()
         access_token = create_access_token(identity=identity)
-        return {
+        resp = make_repsonse(json.dumps({
             "message": "Refreshed token for user \"" + identity + "\"",
             "access_token": access_token
-        }
+        }))
+        set_access_cookies(resp, access_token)
+        return resp
 
 
 @api.route("/logout/access")

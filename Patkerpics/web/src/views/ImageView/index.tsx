@@ -1,7 +1,7 @@
 import React, { Component, ReactElement, useState } from 'react';
 import { FaCaretLeft, FaCaretRight, FaUserCircle, FaPlusSquare, FaRegPlusSquare, FaPlus, FaCircleNotch, FaSpinner, FaCross, FaTimes, FaEdit } from 'react-icons/fa';
 import { connect } from 'react-redux';
-import { logout, addImage } from '../../store/actions';
+import { logout, addImage, updateImage } from '../../store/actions';
 import { Redirect, RouteComponentProps, withRouter } from 'react-router-dom';
 import classNames from 'classnames';
 import User from '../../api/user';
@@ -15,11 +15,13 @@ interface P extends RouteComponentProps {
     images: image[],
     loggedIn: boolean,
     addImage: Function,
-    logout: Function
+    updateImage: Function,
+    logout: Function,
 }
 
 interface S {
-    redirect: boolean
+    redirect: boolean,
+    imgSrcLoading: boolean
 }
 
 export default connect(
@@ -27,14 +29,15 @@ export default connect(
         images: state.application.images,
         loggedIn: state.login.loggedIn
     }),
-    { logout, addImage }
+    { logout, addImage, updateImage }
 )(withRouter(class extends Component<P, S> {
     private cancelled: boolean = false;
     constructor(props: P) {
         super(props);
 
         this.state = {
-            redirect: false
+            redirect: false,
+            imgSrcLoading: false
         };
 
         this.loadImage = this.loadImage.bind(this);
@@ -52,6 +55,7 @@ export default connect(
         this.props.history.push(`/image/${id}`);
     }
     loadImage() {
+        this.setState({ imgSrcLoading : true });
         if (this.getImage() === undefined) {
             User.getImage(this.imageId()).then((image: image|null) => {
                 if (!this.cancelled) {
@@ -105,12 +109,21 @@ export default connect(
                                         );
                                     })()}
                                     {/* <div className="image-view-img-container mx-auto"> */}
-                                        <img className="image-view-img mx-auto" src={image.url} style={{
-                                            cursor: "pointer"
-                                        }} onClick={() => {
-                                            // this.props.history.push(`/raw_image/${image!.id}`);
-                                            window.location.href = image!.url;
-                                        }}/>
+                                        <img className="image-view-img mx-auto"
+                                             src={image.url}
+                                             onLoad={() => this.setState({ imgSrcLoading: false })}
+                                             style={{
+                                                cursor: "pointer",
+                                                display: this.state.imgSrcLoading ? "none" : undefined
+                                             }}
+                                             onClick={() => {
+                                                // this.props.history.push(`/raw_image/${image!.id}`);
+                                                window.location.href = image!.url;
+                                             }}
+                                        />
+                                    {this.state.imgSrcLoading && (
+                                        <Loading loading={true}/>
+                                    )}
                                     {/* </div> */}
                                     {(() => {
                                         const prevImage: number|null = image.prev;
@@ -151,6 +164,10 @@ export default connect(
                                                                 // Title could not be set
                                                                 console.error(result.message);
                                                             }
+                                                            this.props.updateImage({
+                                                                ...image,
+                                                                title: message
+                                                            });
                                                         }
                                                         catch { this.props.logout(); }
                                                     }}
@@ -185,6 +202,7 @@ enum State {
 
 interface TcP {
     logout: Function,
+    updateImage: Function,
     image: image
 };
 
@@ -194,8 +212,10 @@ interface TcS {
 };
 
 const TagContainer = connect(
-    undefined,
-    { logout }
+    (state: any) => ({
+        images: state.application.images,
+    }),
+    { logout, updateImage }
 )(class extends Component<TcP, TcS> {
     constructor(props: TcP) {
         super(props);
@@ -211,7 +231,7 @@ const TagContainer = connect(
     render() {
         return (
             <div className="tag-container">
-                {this.props.image.tags.map((tag,) => <Tag id={this.props.image.id} key={tag} name={tag}/>)}
+                {this.props.image.tags.map((tag,) => <Tag id={this.props.image.id} key={tag} name={tag} image={this.props.image}/>)}
                 <OutsideClickHandler onOutsideClick={() => {
                     this.state.active === State.INPUT && this.setActive(State.INACTIVE);
                 }}>
@@ -231,6 +251,12 @@ const TagContainer = connect(
                                     if (result.error) {
                                         // Tag could not be added
                                         console.error(result.message);
+                                    } else {
+                                        this.props.updateImage({
+                                            ...this.props.image,
+                                            tags: this.props.image.tags.concat(this.state.input)
+                                        })
+                                        // this.props.updateTag(this.props.image.id, this.state.input, UpdateTagType.ADD);
                                     }
                                 } catch { this.props.logout(); }
                                 this.setActive(State.INACTIVE);
@@ -258,11 +284,13 @@ interface I {
 
 interface TP {
     id?: number,
-    name: string|ReactElement
+    name: string|ReactElement,
+    image?: image, // required to use updateImage, made optional because the tag adding widget doesn't need access
     className?: string,
     tagProps?: I,
     closeButton: boolean
-    logout: Function
+    logout: Function,
+    updateImage: Function
 };
 
 interface TS {
@@ -271,7 +299,7 @@ interface TS {
 
 const Tag = connect(
     undefined,
-    { logout }
+    { logout, updateImage }
 )(class extends Component<TP, TS> {
     static defaultProps = {
         closeButton: true
@@ -292,17 +320,26 @@ const Tag = connect(
                     ) : (
                         <>
                         {this.props.name}
-                        {this.props.closeButton && <FaTimes className="ml-2" onClick={async () => {
+                        {this.props.closeButton && <div className="tag-close-button-container ml-2"><FaTimes className="" onClick={async () => {
                             this.setState({ loading : true });
                             try {
                                 const result = await User.removeTag(this.props.id!, this.props.name as string);
                                 if (result.error) {
                                     // Tag could not be added
                                     console.error(result.message);
+                                } else {
+                                    this.props.updateImage({
+                                        ...this.props.image,
+                                        // In this situation, it is guarenteed that `image` is defined
+                                        tags: this.props.image!.tags.filter((tag) => tag !== this.props.name)
+                                    });
                                 }
-                            } catch { this.props.logout(); }
-                            this.setState({ loading : false });
-                        }}/>}
+                            } catch {
+                                this.props.logout();
+                                // Don't need to set loading to false if successfully removed because it will already be unmounted.
+                                this.setState({ loading : false });
+                            }
+                        }}/></div>}
                         </>
                     )
                 }

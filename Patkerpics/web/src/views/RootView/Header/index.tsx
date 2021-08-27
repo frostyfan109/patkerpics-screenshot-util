@@ -3,7 +3,7 @@ import { connect } from 'react-redux';
 import { Navbar, Nav, Form, Button, Modal, Alert, FormControl } from 'react-bootstrap';
 import { LinkContainer } from 'react-router-bootstrap';
 import { FaCameraRetro } from 'react-icons/fa';
-import { login, logout } from '../../../store/actions';
+import { login, logout, register } from '../../../store/actions';
 import { loginInterface as loginStateInterface } from '../../../store/reducers/login';
 import { WEBSITE_NAME } from '../../../config';
 import Cookies from 'js-cookie';
@@ -66,6 +66,7 @@ class Header extends Component<HeaderProps, {}> {
 }
 interface LoginModalProps {
     login: Function,
+    register: Function,
     loggedIn: boolean
 };
 interface LoginModalState {
@@ -111,21 +112,34 @@ class LoginModalClass extends Component<LoginModalProps, LoginModalState> {
             <Form noValidate validated={this.state.validated} onSubmit={(e: React.FormEvent): void => {
                 e.preventDefault();
                 this.setState({ validated : true });
-                if ((e.currentTarget as HTMLFormElement).checkValidity()) {
-                    
+                const form: HTMLFormElement = e.currentTarget as HTMLFormElement;
+                if (form.checkValidity()) {
+                    const username: string = form.username.value;
+                    const email: string = form.email.value;
+                    const password: string = form.password.value;
+                    const thunk: any = this.props.register(username, email, password);
+                    thunk.then((response: APIResponse) => {
+                        if (!response.error) {
+                            this.hide();
+                        }
+                        else {
+                            this.setState({ error : response.message!, validated : false });
+                        }
+                    });
                 }
             }}>
                 <Form.Group>
                     <Form.Label>Username</Form.Label>
-                    <Form.Control type="text" required placeholder="Enter a username"/>
+                    <Form.Control type="text" name="username" required placeholder="Enter a username"/>
                 </Form.Group>
                 <Form.Group>
                     <Form.Label>Email</Form.Label>
-                    <Form.Control type="email" required placeholder="Enter an email address"/>
+                    <Form.Control type="email" name="email" required placeholder="Enter an email address"/>
                 </Form.Group>
                 <Form.Group>
                     <Form.Label>Password</Form.Label>
                     <Form.Control type="password"
+                                  name="password"
                                   ref={this.signupPassword}
                                   onChange={(): void => {this.forceUpdate();}}
                                   required
@@ -234,7 +248,7 @@ const LoginModal = connect(
     (state: any) => ({
         loggedIn : state.login.loggedIn
     }),
-    { login },
+    { login, register },
     undefined,
     { forwardRef : true }
 )(LoginModalClass);

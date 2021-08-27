@@ -2,7 +2,9 @@ import { ThunkAction, ThunkDispatch } from 'redux-thunk';
 import { LoremIpsum } from 'lorem-ipsum';
 import { 
     SET_LOGGED_IN, setLoggedInAction, SET_LOGGING_IN, setLoggingInAction,
-    SET_APPLICATION_STATE, setApplicationStateAction, addImagesAction, ADD_IMAGES, removeImageAction, REMOVE_IMAGE, updateImageAction, UPDATE_IMAGE, fetchedAllImagesAction, FETCHED_ALL_IMAGES
+    SET_APPLICATION_STATE, setApplicationStateAction, addImagesAction,
+    ADD_IMAGES, removeImageAction, REMOVE_IMAGE, updateImageAction,
+    UPDATE_IMAGE, fetchedAllImagesAction, FETCHED_ALL_IMAGES
 } from './actionTypes';
 import User, { Callbacks } from '../api/user';
 import Cookies from 'js-cookie';
@@ -105,6 +107,16 @@ export function setLoggedIn(loggedIn: boolean): setLoggedInAction {
         type: SET_LOGGED_IN,
         loggedIn
     };
+}
+export function register(username: string, email: string, password: string): ThunkAction<Promise<APIResponse>, any, any, any> {
+    return async (dispatch: ThunkDispatch<any, any, any>) => {
+        dispatch(setLoggingIn());
+        const response: APIResponse = await User.register(username, email, password);
+        if (!response.error) {
+            dispatch(authenticateLogin());
+        }
+        return response;
+    }
 }
 export function login(username: string, password: string): ThunkAction<Promise<APIResponse>, any, any, any> {
     return async (dispatch: ThunkDispatch<any, any, any>) => {

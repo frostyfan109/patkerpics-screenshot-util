@@ -19,5 +19,13 @@ The [Patkerpics Server & API](./patkerpics-api) are built in using Flask and Fla
 - SQLAlcehmy is used for database ORM with SQLite.
 
 # Usage
-- The server can be launched by running `main.py` in the `patkerpics-api` directory using Python 3.7.x. Refer to the [file](./patkerpics-api) for available arguments.
-- The webapp can be launched by running `npm start` in the `Patkerpics/web` directory.
+
+### Server Setup
+1. Create and run a virtual environment in [patkerpics-api](./patkerpics-api) using Python 3.7.x
+2. Install `requirements.txt`
+3. Create `credentials.py`. This file must contain the variable `JWT_SECRET_KEY` which should be a long random string of bytes, e.g. `secrets.token_urlsafe(64)`.
+4. Launch the server through `main.py`. Refer to the [file](./patkerpics-api) for available arguments.
+
+### Webapp Setup
+1. Install `package.json` in [Patkerpics\web](./Patkerpics/web)
+2. Launch the webapp by running `npm start`.

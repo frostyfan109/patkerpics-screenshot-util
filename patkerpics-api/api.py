@@ -5,6 +5,7 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_socketio import SocketIO
 from config import SERVER_HOST
+from credentials import JWT_SECRET_KEY
 import datetime
 from jwt.exceptions import ExpiredSignatureError
 
@@ -21,7 +22,7 @@ def after_request(response):
 socket = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
 app.config['JWT_TOKEN_LOCATION'] = ['cookies', 'headers']
-app.config['JWT_SECRET_KEY'] = "669E2C9A6828A928071176FE0755249E6D86DAAB37BFFAC446840538D7147CB6"
+app.config['JWT_SECRET_KEY'] = JWT_SECRET_KEY
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = datetime.timedelta(minutes=15)
 app.config['JWT_REFRESH_TOKEN_EXPIRES'] = datetime.timedelta(weeks=4)
 

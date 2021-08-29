@@ -34,7 +34,6 @@ class UserModel(Model):
     password = db.Column(db.String(255), unique=False, nullable=False)
     email = db.Column(db.String(255), unique=True, nullable=False)
     created = db.Column(db.DateTime, unique=False, nullable=False, default=datetime.now)
-    bits_used = db.Column(db.Integer, unique=False, nullable=False, default=0)
 
     def get_images(self):
         return ImageModel.query.filter_by(user_id=self.id).all()
@@ -49,19 +48,20 @@ class UserModel(Model):
 
         super().delete()
 
-    def update_bits(self):
-        # This should be updated to take an argument of the difference in bits.
-        # For now this is a better method since images may get deleted directly
-        # from the database causing desync in this value.
-        self.bits_used = sum([img.file_size for img in self.get_images()])
-        self.update()
+    def get_bytes_used(self):
+        # This could be updated to be a databsae column which is updated by
+        # a difference in bytes whenever an image is uploaded/deleted.
+        # For now, this is a better method since images may get deleted directly
+        # from the database causing desync in this value if it were recorded
+        # rather than generated.
+        return sum([img.file_size for img in self.get_images()])
 
     def serialize(self):
         return {
             "username": self.username,
             "email": self.email,
             "created": self.created.timestamp(),
-            "bits_used": self.bits_used
+            "bytes_used": self.get_bytes_used()
         }
 
 
@@ -95,8 +95,11 @@ class ImageModel(Model):
     bit_depth = db.Column(db.Integer, unique=False, nullable=False)
     width = db.Column(db.Integer, unique=False, nullable=False)
     height = db.Column(db.Integer, unique=False, nullable=False)
-    file_size = db.Column(db.Float, unique=False, nullable=False)
+    # Stores file size in bytes
+    file_size = db.Column(db.Integer, unique=False, nullable=False)
     file_type = db.Column(db.String, unique=False, nullable=False)
+    ocr_text = db.Column(db.String, nullable=True)
+    ocr_boxes = db.Column(db.String, nullable=True)
 
 
     """
@@ -124,11 +127,8 @@ class ImageModel(Model):
 
         super().save()
 
-        UserModel.query.filter_by(id=self.user_id).first().update_bits()
-
     def delete(self):
         os.remove(self.get_path())
-        UserModel.query.filter_by(id=self.user_id).first().update_bits()
 
         super().delete()
 
@@ -164,6 +164,8 @@ class ImageModel(Model):
                 "height": self.height,
                 "file_type": self.file_type,
                 "file_size": self.file_size,
+                "ocr_text": self.ocr_text,
+                "ocr_boxes": self.ocr_boxes,
                 "next": next,
                 "prev": prev
             }

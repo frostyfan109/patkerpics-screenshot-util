@@ -7,6 +7,7 @@ export const ADD_IMAGES = "ADD_IMAGES";
 export const REMOVE_IMAGE = "REMOVE_IMAGE";
 export const UPDATE_IMAGE = "UPDATE_IMAGE";
 export const FETCHED_ALL_IMAGES = "FETCHED_ALL_IMAGES";
+export const ADD_GLOBAL_ERROR = "ADD_GLOBAL_ERROR";
 
 export interface fetchedAllImagesAction {
     type: typeof FETCHED_ALL_IMAGES

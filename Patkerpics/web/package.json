@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@babel/plugin-proposal-decorators": "^7.14.5",
+    "@babel/plugin-proposal-optional-chaining": "^7.14.5",
     "@types/axios": "^0.14.0",
     "@types/classnames": "^2.2.9",
     "@types/es6-error": "^4.0.2",
@@ -13,6 +15,7 @@
     "@types/lorem-ipsum": "^1.0.2",
     "@types/node": "12.7.4",
     "@types/number-to-words": "^1.2.0",
+    "@types/pretty-bytes": "^5.2.0",
     "@types/qs": "^6.5.3",
     "@types/react": "16.9.2",
     "@types/react-bootstrap": "^0.32.19",
@@ -30,17 +33,22 @@
     "@types/redux-thunk": "^2.1.0",
     "@types/reselect": "^2.2.0",
     "@types/socket.io-client": "^1.4.32",
+    "@types/statuses": "^2.0.0",
     "axios": "^0.19.0",
     "bootstrap": "^4.3.1",
     "classnames": "^2.2.6",
+    "customize-cra": "^1.0.0",
     "es6-error": "^4.1.1",
+    "eslint": "^6.6.0",
     "eventsource": "^1.0.7",
     "js-cookie": "^2.2.1",
     "jwt-decode": "^2.2.0",
     "lorem-ipsum": "^2.0.3",
     "number-to-words": "^1.2.4",
+    "pretty-bytes": "^5.6.0",
     "qs": "^6.9.0",
     "react": "^16.9.0",
+    "react-app-rewired": "^2.1.8",
     "react-avatar": "^3.10.0",
     "react-bootstrap": "^1.0.0-beta.12",
     "react-dom": "^16.9.0",
@@ -53,19 +61,20 @@
     "react-redux": "^7.1.1",
     "react-router-bootstrap": "^0.25.0",
     "react-router-dom": "^5.0.1",
-    "react-scripts": "3.1.1",
+    "react-scripts": "3.4.0",
     "reactstrap": "^8.1.1",
     "redux": "^4.0.4",
     "redux-persist": "^6.0.0",
     "redux-thunk": "^2.3.0",
     "reselect": "^4.0.0",
     "socket.io-client": "^2.4.0",
-    "typescript": "3.6.2"
+    "statuses": "^2.0.1",
+    "typescript": "^3.6.2"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
+    "start": "react-app-rewired start",
+    "build": "react-app-rewired build",
+    "test": "react-app-rewired test",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
@@ -82,5 +91,6 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  }
+  },
+  "devDependencies": {}
 }

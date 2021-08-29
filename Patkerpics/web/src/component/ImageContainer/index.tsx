@@ -57,8 +57,34 @@ class Hook extends Component<HookProps, {dropdownOpen: boolean}> {
     }
 }
 
-const Thumbnail = withRouter(class extends Component<ThumbnailProps, {}> {
+const Thumbnail = withRouter(class extends Component<ThumbnailProps, { url: string|undefined }> {
+    constructor(props: ThumbnailProps) {
+        super(props);
+
+        this.state = {
+            url: undefined
+        };
+    }
     private dropdownRef = React.createRef<Hook>();
+    async componentDidMount() {
+        // It's better to stick to strict API calls for interacting with any server resource.
+        // Linking directly to the image URL could fail if credentials are stale at loadtime.
+        // Loading via the API ensures that the credentials are automatically refreshed beforehand.
+        let url: string;
+        let count = 0;
+        // console.log("Started load");
+        User.loadImageAsBlob(this.props.image.url, (chunk: Blob) => {
+            if (url) URL.revokeObjectURL(url);
+            // console.log("Loaded chunk", ++count);
+            url = URL.createObjectURL(chunk);
+            this.setState({ url });
+        }).then(() => {
+            // console.log("Finished load");
+        });
+    }
+    componentWillUnmount() {
+        this.state.url && URL.revokeObjectURL(this.state.url);
+    }
     render() {
         return (
             <Card onClick={() => {
@@ -70,7 +96,7 @@ const Thumbnail = withRouter(class extends Component<ThumbnailProps, {}> {
             }}>
                 {/* <Card.Img variant="top" src={image.url}/> */}
                 <div className="card-img-box" style={{
-                    backgroundImage: `url(${this.props.image.url})`
+                    backgroundImage: `url(${this.state.url})`
                 }}>
                     <Hook imageId={this.props.image.id} ref={this.dropdownRef}/>
                 </div>

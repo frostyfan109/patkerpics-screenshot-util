@@ -1,13 +1,13 @@
 import axios from 'axios';
-import EventSource from 'eventsource';
 import io from 'socket.io-client';
 import * as qs from 'qs';
 import { BASE_API_URL, APIResponse, AuthenticationError } from '.';
 import { image, userData } from '../store/reducers/application';
+import { store } from '../store';
 import { LoremIpsum } from 'lorem-ipsum';
 import Cookies from 'js-cookie';
-import { login, logout } from '../store/actions';
 import JwtDecode from 'jwt-decode';
+import { addGlobalAPIError, addGlobalError } from '../store/actions';
 
 type updateImage = (image: image) => void;
 type addImage = (image: image) => void;
@@ -33,6 +33,11 @@ interface Operations {
     pollImages: PollImages
 };
 
+interface OCRData {
+    ocr_text: string
+    ocr_boxes: string
+}
+
 interface JWTHeader {
     Authorization: string
 };
@@ -48,6 +53,8 @@ const li = new LoremIpsum({
     }
 });
 
+let refreshTokenInterval: NodeJS.Timeout;
+
 export default class User {
     public static pollingImages: PollImages|null = null;
     // private static tokenRefreshCallbacks: Function[] = [];
@@ -55,31 +62,23 @@ export default class User {
     private static refreshing: boolean = false;
     private static refreshPromise: Promise<void> = Promise.resolve();
 
-    public static get userData(): userData|undefined {
-        const userData = Cookies.get("user_data");
-        return userData ? JSON.parse(userData) : undefined;
-    }
-    // Optional chaining would make this much more concise if ejecting ever happens.
-    /*
-    public static get username(): string|undefined {
-        // return this.userData && this.userData.username;
-        return "foobar";
-    }
-    public static get email(): string|undefined {
-        return this.userData && this.userData.email;
-    }
-    public static get created(): number|undefined {
-        return this.userData && this.userData.created;
-    }
-    public static get bitsUsed(): number|undefined {
-        return this.userData && this.userData.bitsUsed;
-    }
-    */
+    public static _socket?: SocketIOClient.Socket;
+
     public static get accessToken(): string|undefined {
         return Cookies.get("access_token");
     }
+    public static set accessToken(value: string|undefined) {
+        Cookies.set("access_token", (value as any));
+        if (this._socket && this._socket.io.opts.transportOptions) {
+            (this._socket.io.opts.transportOptions as any).polling.extraHeaders = this.JWTAccessHeader();
+            (this._socket.io.opts.transportOptions as any).polling.extraHeaders.foobar = 1234132234;
+        }
+    }
     public static get refreshToken(): string|undefined {
         return Cookies.get("refresh_token");
+    }
+    public static set refreshToken(value: string|undefined) {
+        Cookies.set("refresh_token", (value as any));
     }
     public static get loggedIn() {
         return (
@@ -88,30 +87,34 @@ export default class User {
             this.refreshToken !== undefined
         );
     }
-    private static refresh(): Promise<void> {
+    public static refresh(force=false): Promise<Error|void> {
         if (this.refreshing) return this.refreshPromise;
+        if (!this.loggedIn) return Promise.resolve();
         this.refreshing = true;
+        // return Promise.resolve();
+        console.log("refreshing");
 
         this.refreshPromise = new Promise(async (resolve, reject) => {
-            if (this.accessToken === "undefined") {
-                reject("Access token is undefined");
-            }
-            // If access token expires in less than 60 seconds refresh it
-            else {
-                const decoded = JwtDecode<{exp: number}>(this.accessToken as string);
-                if ((decoded.exp - (Date.now() / 1000)) <= 30000) {
-                    try {
-                        console.log("REFRESHING ACCESS");
-                        const accessToken = (await axios.post(BASE_API_URL + "/refresh", {}, {
-                            headers: this.JWTRefreshHeader(),
-                            withCredentials: true
-                        })).data.access_token;
-                        console.log("Refreshed access token");
-                        Cookies.set("access_token", accessToken);
-                    } catch (e) {
-                        console.log("Authentication failed with error", e);
-                        reject();
+            // if (this.accessToken === "undefined") {
+            //     reject(new AuthenticationError("Access token is undefined."));
+            // }
+            // If force enabled or access token expires in less than 60 seconds refresh it
+            const decoded = JwtDecode<{exp: number}>(this.accessToken as string);
+            if (force || (decoded.exp - (Date.now() / 1000)) <= 60) {
+                if (force) console.log("Forced token refresh.");
+                try {
+                    const resp = (await axios.post(BASE_API_URL + "/refresh", {}, {
+                        headers: this.JWTRefreshHeader(),
+                        // withCredentials: true
+                    }));
+                    const { message, error, access_token: accessToken, refresh_token: refreshToken } = resp.data;
+                    console.log(message);
+                    if (!error) {
+                        this.accessToken = accessToken;
+                        this.refreshToken = refreshToken;
                     }
+                } catch (e) {
+                    console.log(e)
                 }
             }
             resolve();
@@ -119,64 +122,115 @@ export default class User {
         this.refreshPromise.then(() => {this.refreshing = false;});
         return this.refreshPromise;
     }
-    public static async getUserData(): Promise<userData> {
-        await this.refresh();
-        const userData: userData = (await axios.get(BASE_API_URL + "/user_data", {
-            headers: this.JWTAccessHeader()
-        })).data;
-        return userData;
-    }
-    public static async deleteImage(imageId: number): Promise<void> {
-        await this.refresh();
-        await axios.delete(BASE_API_URL + "/image/" + imageId, {
-            headers: this.JWTAccessHeader()
-        });
-    }
-    public static async getImage(imageId: number): Promise<image|null> {
-        await this.refresh();
-        const data: image|null = (await axios.get(BASE_API_URL + "/image/" + imageId, {
-            headers: this.JWTAccessHeader()
-        })).data;
-        return data === null ? data : this.loadImage(data!);
-    }
-    public static async getImages(): Promise<image[]> {
-        await this.refresh();
-        const data: image[] = (await axios.get(BASE_API_URL + "/images", {
-            headers: this.JWTAccessHeader()
-        })).data.map((image: image) => this.loadImage(image));
-        return data;
-    }
-    public static async setTitle(imageId: number, title: string): Promise<APIResponse> {
-        await this.refresh();
-        const data = (await axios.post(BASE_API_URL + "/image/" + imageId + "/modify", [
-            {
-                type: "setTitle",
-                title
-
-            }
-        ], {
-            headers: this.JWTAccessHeader()
-        })).data;
+    @APIRequest()
+    public static async scanOCR(imageId: number): Promise<APIResponse> {
+        const resp  = (await axios.get(BASE_API_URL + "/ocr/" + imageId, {
+            headers: this.JWTAccessHeader(),
+            withCredentials: true
+        }));
+        const { message, error, error_info, ocr_text: OCRText, ocr_boxes: OCRBoxes } = resp.data;
         return {
-            error: !data[0].success,
-            message: data[0].message
+            resp,
+            message,
+            error,
+            error_info,
+            OCRText,
+            OCRBoxes
+        };
+        
+    }
+    @APIRequest()
+    public static async getUserData(): Promise<APIResponse> {
+        const resp = (await axios.get(BASE_API_URL + "/user_data", {
+            headers: this.JWTAccessHeader(),
+            withCredentials: true
+        }));
+        const { message, error, error_info, user_data: userData } = resp.data;
+        return {
+            resp,
+            message,
+            error,
+            error_info,
+            userData
         };
     }
-    public static async changeTag(command: string, imageId: number, name: string): Promise<APIResponse> {
-        await this.refresh();
-        const data = (await axios.post(BASE_API_URL + "/image/" + imageId + "/modify", [
-            {
-                type: command,
-                tag: name
-
-            }
-        ], {
-            headers: this.JWTAccessHeader()
-        })).data;
-        // await new Promise((resolve) => setTimeout(() => resolve(), 2500));
+    @APIRequest()
+    public static async deleteImage(imageId: number): Promise<APIResponse> {
+        const resp = (await axios.delete(BASE_API_URL + "/image/" + imageId, {
+            headers: this.JWTAccessHeader(),
+            withCredentials: true
+        }));
         return {
-            error: !data[0].success,
-            message: data[0].message
+            resp,
+            ...resp.data
+        };
+    }
+    @APIRequest()
+    public static async getImage(imageId: number): Promise<APIResponse> {
+        const response = (await axios.get(BASE_API_URL + "/image/" + imageId, {
+            headers: this.JWTAccessHeader(),
+            withCredentials: true
+        }));
+        if (response.data.error) return response.data;
+        else {
+            return {
+                resp: response,
+                message: response.data.message,
+                error: response.data.error,
+                image: this.loadImage(response.data.image)
+            };
+        }
+        // return data === null ? data : this.loadImage(data!);
+    }
+    @APIRequest()
+    public static async getImages(): Promise<APIResponse> {
+        interface GetImagesResponse extends APIResponse {
+            images: image[]
+        }
+        const resp = (await axios.get(BASE_API_URL + "/images", {
+            headers: this.JWTAccessHeader(),
+            withCredentials: true
+        }));
+        const { message, error, error_info, images }: GetImagesResponse = resp.data;
+        if (error) return {
+            resp,
+            message,
+            error,
+            error_info
+        };
+        else return {
+            resp,
+            message,
+            error,
+            images: images.map((image: image) => this.loadImage(image))
+        };
+    }
+    @APIRequest()
+    public static async setTitle(imageId: number, title: string): Promise<APIResponse> {
+        const resp = (await axios.post(BASE_API_URL + "/image/" + imageId + "/modify", {
+            type: "setTitle",
+            title
+        }, {
+            headers: this.JWTAccessHeader(),
+            withCredentials: true
+        }));
+        return {
+            resp,
+            ...resp.data
+        };
+    }
+    @APIRequest()
+    public static async changeTag(command: string, imageId: number, name: string): Promise<APIResponse> {
+        const resp = (await axios.post(BASE_API_URL + "/image/" + imageId + "/modify", {
+            type: command,
+            tag: name
+        }, {
+            headers: this.JWTAccessHeader(),
+            withCredentials: true
+        }));
+        return {
+            resp,
+            ...resp.data
         };
     }
     public static async addTag(imageId: number, name: string): Promise<APIResponse> {
@@ -184,6 +238,52 @@ export default class User {
     }
     public static async removeTag(imageId: number, name: string): Promise<APIResponse> {
         return User.changeTag("removeTag", imageId, name);
+    }
+    @APIRequest()
+    public static async loadImageAsBlob(url: string, loadingCallback?: Function): Promise<APIResponse> {
+        try {
+            // Axois does not support streamed requests
+            const resp = await fetch(url, {
+                method: "GET",
+                headers: (this.JWTAccessHeader() as any),
+                credentials: "include"
+            });
+            const body = await resp.body;
+            const reader = body!.getReader();
+            var done = false;
+            var value_buffer: Uint8Array = new Uint8Array();
+            while (!done) {
+                var { done, value } = await reader.read();
+                // Value is undefined upon completion
+                if (!value) continue;
+                // Concat buffers
+                const old_buffer = value_buffer;
+                value_buffer = new Uint8Array(old_buffer.length + value.length);
+                value_buffer.set(old_buffer);
+                value_buffer.set(value, old_buffer.length);
+                loadingCallback && loadingCallback(new Blob([value_buffer.buffer]));
+            }
+            return {
+                resp,
+                message: "Successfully downloaded image.",
+                data: new Blob([value_buffer])
+            };
+
+        } catch (e) {
+            // If Fetch isn't supported, fallback to an unstreamed Axios request (XMLHttpRequest).
+            // This will load the entire image at once, which is more jarring and makes load times
+            // feel longer.
+            console.log("Streamed fetch falling back to Axios request.", e);
+            const resp = (await axios.get(url, {
+                responseType: "blob",
+                headers: this.JWTAccessHeader()
+            }));
+            return {
+                resp,
+                message: "Successfully downloaded image. Fellback to Axios.",
+                data: resp.data
+            }
+        }
     }
     private static loadImage(image: image): image {
         // Create image reference from image id
@@ -212,6 +312,10 @@ export default class User {
                         },
                     }
                 });
+                this._socket = socket;
+                socket.on("connect_error", () => {
+                    this.refresh(true);
+                });
                 // const errorHandle = () => {
                 //     console.log("Handling socket connection error");
                 //     stop();
@@ -227,6 +331,14 @@ export default class User {
                 //     }
                 //     setInitialImages(images);
                 // });
+                
+                // Set an interval to refresh the JWT access token every 5 minutes.
+                // Since the token is only refreshed when requests are made to the API,
+                // if the client goes however long access expiration is without making a
+                // request it will expire before it can be refreshed.
+                refreshTokenInterval = setInterval(() => {
+                    this.refresh(true);
+                }, 1000 * 60 * 5);
                 socket.on("addImage", async (image: image) => {
                     console.log("Received add image event");
                     addImage(this.loadImage(image));
@@ -245,8 +357,10 @@ export default class User {
         const stop = () => {
             if (socket !== undefined) {
                 console.log("Terminating");
+                clearInterval(refreshTokenInterval);
                 socket.close();
                 socket = undefined;
+                this._socket = undefined;
             }
         };
         this.pollingImages = {
@@ -255,56 +369,54 @@ export default class User {
         };
         this.pollingImages.start();
     }
+    @APIRequest()
     // Could shorten this by consolidating the overlapping login logic into a single function
     public static async register(username: string, email: string, password: string): Promise<APIResponse> {
-        try {
-            const response = await axios.post(BASE_API_URL + "/register", {
-                username,
-                email,
-                password
-            }, {
-                withCredentials: true
-            });
-            const { access_token: accessToken, refresh_token: refreshToken, message } = response.data;
-            // Cookies.set("username", username);
-            Cookies.set("access_token", accessToken);
-            Cookies.set("refresh_token", refreshToken);
-            return {
-                message,
-                error: false
-            };
+        const response = await axios.post(BASE_API_URL + "/register", {
+            username,
+            email,
+            password
+        }, {
+            withCredentials: true
+        });
+        const { message, error, error_info, access_token: accessToken, refresh_token: refreshToken } = response.data;
+        // Cookies.set("username", username);
+        if (!error) {
+            this.accessToken = accessToken;
+            this.refreshToken = refreshToken;
         }
-        catch (error) {
-            return {
-                message: error.response.data.message,
-                error: true
-            };
-        }
+        return {
+            resp: response,
+            message,
+            error,
+            error_info,
+            accessToken,
+            refreshToken
+        };
     }
+    @APIRequest()
     public static async login(username: string, password: string): Promise<APIResponse> {
-        try {
-            const response = await axios.post(BASE_API_URL + "/login", {
-                username,
-                password
-            }, {
-                withCredentials: true
-            });
-            const { access_token: accessToken, refresh_token: refreshToken, user_data: userData, message } = response.data;
-            // Cookies.set("username", username);
-            Cookies.set("user_data", JSON.stringify(userData));
-            Cookies.set("access_token", accessToken);
-            Cookies.set("refresh_token", refreshToken);
-            return {
-                message,
-                error: false
-            };
+        const response = await axios.post(BASE_API_URL + "/login", {
+            username,
+            password
+        }, {
+            withCredentials: true
+        });
+        const { message, error, error_info, access_token: accessToken, refresh_token: refreshToken, user_data: userData } = response.data;
+        // Cookies.set("username", username);
+        // Cookies.set("user_data", JSON.stringify(userData));
+        if (!error) {
+            this.accessToken = accessToken;
+            this.refreshToken = refreshToken;
         }
-        catch (error) {
-            return {
-                message: error.response ? error.response.data.message : error.stack,
-                error: true
-            };
-        }
+        return {
+            resp: response,
+            message,
+            error,
+            error_info,
+            accessToken,
+            refreshToken
+        };
     }
     public static async logout(): Promise<void> {
         if (this.pollingImages !== null) {
@@ -352,3 +464,73 @@ export default class User {
         return this.JWTHeader(this.refreshToken!);
     }
 };
+
+function APIRequest(refresh: boolean=true): Function {
+    return (target: any, propertyKey: string, descriptor: TypedPropertyDescriptor<any>) => {
+        const method = descriptor.value;
+    
+        descriptor.value = async function(...args: any[]) {
+            // if (refresh) {
+            //     const possibleError = await User.refresh();
+            //     if (typeof possibleError !== "undefined") {
+            //         store.dispatch(addGlobalError({
+            //             title: "Authentication Error",
+            //             message: possibleError.message,
+            //             stack_trace: possibleError.stack
+            //         }));
+            //         // Refresh token has expired.
+            //         User.logout();
+            //     }
+            // }
+            let response: APIResponse;
+            try {
+                response = await method.apply(this, args);
+                const newAccessToken = response.resp!.headers["update-access-token"];
+                const newRefreshToken = response.resp!.headers["update-refresh-token"];
+                if (newAccessToken) {
+                    User.accessToken = newAccessToken;
+                    console.log("Updated access token automatically.");
+                }
+                if (newRefreshToken) {
+                    User.refreshToken = newRefreshToken;
+                    console.log("Updated refresh token automatically.");
+                }
+                // Access tokens are automatically refreshed after each request, so as long as a valid
+                // refresh token is sent, the response will go through the next attempt.
+                // Curruently, this has no use an isn't actually functional.
+                // if (response.error && response.error_info && response.error_info.jwt_authentication_error) {
+                //     console.log("Second attempt");
+                //     response = await method.apply(this, args);
+                //     console.log("Second attempt:", response);
+                // }
+            } catch (e) {
+                response = {
+                    resp: null,
+                    message: e.message,
+                    error: true,
+                    error_info: {
+                        stack_trace: e.stack
+                    }
+                };
+
+                // Dispatch a global error if an API request method fails altogether.
+                // Intended behavior is that a response indicates that it has failed
+                // in its payload rather than throwing an error, so something must go
+                // very wrong (like API being unavailable) in order to throw an error.
+                // store.dispatch(addGlobalError({
+                //     title: "Request Error",
+                //     message: e.message,
+                //     stack_trace: e.stack
+                // }));
+                // store.dispatch(addGlobalAPIError(response));
+            }
+            /* This should never happen as long as refresh is called prior to making a request. */
+            // if (response.error && response.error_info && response.error_info.jwt_authentication_error) {
+            //     console.log("Invalid JWT credentials.");
+            //     console.log("Request made with expired credentials. Refreshing and reexecuting request.");
+            // }
+            return response;
+        };
+        return descriptor;
+    }
+}

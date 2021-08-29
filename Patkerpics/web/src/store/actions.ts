@@ -4,19 +4,43 @@ import {
     SET_LOGGED_IN, setLoggedInAction, SET_LOGGING_IN, setLoggingInAction,
     SET_APPLICATION_STATE, setApplicationStateAction, addImagesAction,
     ADD_IMAGES, removeImageAction, REMOVE_IMAGE, updateImageAction,
-    UPDATE_IMAGE, fetchedAllImagesAction, FETCHED_ALL_IMAGES
+    UPDATE_IMAGE, fetchedAllImagesAction, FETCHED_ALL_IMAGES,
+    ADD_GLOBAL_ERROR
 } from './actionTypes';
 import User, { Callbacks } from '../api/user';
 import Cookies from 'js-cookie';
 import { initialState as initialLoginState } from './reducers/login';
-import { applicationInterface, initialState as defaultApplicationState, image, userData } from './reducers/application';
+import { applicationInterface, initialState as defaultApplicationState, image, userData, ApplicationError } from './reducers/application';
 import { async } from 'q';
+import status from 'statuses';
 import { APIResponse, AuthenticationError } from '../api';
 
 export function setLoggingIn(): setLoggingInAction {
     return {
         type: SET_LOGGING_IN
     };
+}
+
+export function addGlobalError(applicationError: ApplicationError) {
+    console.log("Adding error");
+    return {
+        type: ADD_GLOBAL_ERROR,
+        applicationError
+    };
+}
+
+export function addGlobalAPIError(response: APIResponse) {
+    // console.log(response.error_info);
+    const { status_code, stack_trace } = response.error_info || {};
+    const error: ApplicationError = {
+        title: status_code ? `${status_code} ${status(status_code)}` : "API Error",
+        message: response.message,
+        stack_trace: stack_trace
+    };
+    return {
+        type: ADD_GLOBAL_ERROR,
+        applicationError: error
+    }
 }
 
 function setApplicationState(applicationState: object): setApplicationStateAction {
@@ -35,10 +59,18 @@ export function fetchApplicationState(): ThunkAction<Promise<void>, any, any, an
 }
 export function fetchUserData(): ThunkAction<Promise<void>, any, any, any> {
     return async (dispatch: ThunkDispatch<any, any, any>, getState: Function) => {
-        const userData: userData = await User.getUserData();
-        dispatch(setApplicationState({
-            userData
-        }));
+        const response = await User.getUserData();
+        const { message, error, userData } = response;
+        if (error) {
+            console.log(message);
+            dispatch(addGlobalAPIError(
+                response
+            ));
+        } else {
+            dispatch(setApplicationState({
+                userData
+            }));
+        }
     }
 }
 export function pageLoad(): ThunkAction<Promise<void>, any, any, any> {

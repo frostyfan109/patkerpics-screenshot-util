@@ -11,3 +11,35 @@
 #avatarDropdown::after {
     display: none;
 }
+.user-avatar-container {
+    position: relative;
+}
+.user-avatar-container > .user-avatar {
+    transition: filter .15s ease-in-out;
+}
+.user-avatar-container > .user-avatar > .user-avatar > * {
+    transition: opacity .15s ease-in-out;
+}
+.user-avatar-container:hover > .user-avatar > .user-avatar > * {
+    /* opacity: 0; */
+}
+.add-icon {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    transition: opacity .15s ease-in-out;
+    opacity: 0;
+}
+.add-icon > * {
+    font-size: 20px;
+    color: rgba(255, 255, 255, .9);
+    margin-bottom: 2px;
+    margin-left: 1px;
+}
+.user-avatar-container:hover > .user-avatar {
+    filter: brightness(75%);
+}
+.user-avatar-container:hover > .add-icon {
+    opacity: 1;
+}

@@ -1,7 +1,7 @@
 import React, { Component, ReactElement, useState } from 'react';
 import { FaCaretLeft, FaCaretRight, FaUserCircle, FaPlusSquare, FaRegPlusSquare, FaPlus, FaCircleNotch, FaSpinner, FaCross, FaTimes, FaEdit } from 'react-icons/fa';
 import { connect } from 'react-redux';
-import { logout, addImage, updateImage } from '../../store/actions';
+import { logout, addImage, updateImage, addGlobalAPIError } from '../../store/actions';
 import { Redirect, RouteComponentProps, withRouter } from 'react-router-dom';
 import classNames from 'classnames';
 import User from '../../api/user';
@@ -9,7 +9,9 @@ import Loading from '../../component/Loading';
 import { image, userData } from '../../store/reducers/application';
 import './ImageView.css';
 import OutsideClickHandler from 'react-outside-click-handler';
-import { AuthenticationError } from '../../api';
+import { AuthenticationError, APIResponse } from '../../api';
+import { Accordion, Card, Button, Collapse } from 'react-bootstrap';
+import Avatar from 'react-avatar';
 const InlineEdit = require('react-edit-inline2').default;
 interface P extends RouteComponentProps {
     images: image[]
@@ -17,13 +19,17 @@ interface P extends RouteComponentProps {
     userData: userData
     addImage: Function
     updateImage: Function
+    addGlobalAPIError: Function
     logout: Function
 }
 
 interface S {
     redirect: boolean,
-    imgSrcLoading: boolean,
-    preloadImage: HTMLImageElement | null
+    // imgSrcLoading: boolean,
+    preloadImage: HTMLImageElement | null,
+    detailsOpen: boolean,
+    scanningOCR: boolean,
+    url?: string
 }
 
 export default connect(
@@ -32,7 +38,7 @@ export default connect(
         userData: state.application.userData,
         loggedIn: state.login.loggedIn,
     }),
-    { logout, addImage, updateImage }
+    { logout, addImage, updateImage, addGlobalAPIError }
 )(withRouter(class extends Component<P, S> {
     private cancelled: boolean = false;
     constructor(props: P) {
@@ -40,9 +46,12 @@ export default connect(
 
         this.state = {
             redirect: false,
-            imgSrcLoading: false,
+            // imgSrcLoading: false,
             // Not actually used for anything other than variable persistence while loading.
-            preloadImage: null
+            preloadImage: null,
+            detailsOpen: false,
+            scanningOCR: false,
+            url: undefined
         };
 
         this.loadImage = this.loadImage.bind(this);
@@ -59,26 +68,69 @@ export default connect(
     switchImage(id: number) {
         this.props.history.push(`/image/${id}`);
     }
+    async preloadImage(image: image): Promise<void> {
+        // It's important to refresh here since accessing /raw_image/xxx/ requires credentials
+        // via cookies. Since it's not making an API request, refreshing isn't handled automatically.
+        
+        /*
+        await User.refresh();
+        const img = new Image();
+        img.src = image.url;
+
+        // Make sure the image isn't deleted in garbage collection while preloading.
+        this.setState({ preloadImage : img });
+        img.onload = () => this.setState({ imgSrcLoading : false });
+
+        */
+
+        // No need to utilize streamed loading here, since the page stays in the "loading" state
+        // until the image has fully loaded regardless.
+        const image_data: Blob = (await User.loadImageAsBlob(image.url)).data;
+        const url = URL.createObjectURL(image_data);
+        this.setState({ url });
+    }
     loadImage() {
-        this.setState({ imgSrcLoading : true });
+        // this.setState({ imgSrcLoading : true });
         if (this.getImage() === undefined) {
-            User.getImage(this.imageId()).then((image: image|null) => {
+            User.getImage(this.imageId()).then(({message, error, image}: APIResponse) => {
                 if (!this.cancelled) {
-                    if (image === null) this.setState({ redirect : true });
+                    if (error) {
+                        console.log(message);
+                        this.setState({ redirect : true });
+                    }
                     else {
                         this.props.addImage(image);
-                        const img = new Image();
-                        img.src = image.url;
-                        // Make sure the image isn't deleted in garbage collection while preloading.
-                        this.setState({ preloadImage : img });
-                        img.onload = () => this.setState({ imgSrcLoading : false });
+                        this.preloadImage(image);
                     }
                 }
             }).catch((error: AuthenticationError) => {
                 console.log(error);
                 this.props.logout();
             });
+        } else {
+            this.preloadImage(this.getImage()!);
         }
+    }
+    async scanOCR() {
+        this.setState({ scanningOCR : true });
+        const image = this.getImage()!;
+        try {
+            const response = await User.scanOCR(image.id);
+            const { message, error, OCRText, OCRBoxes } = response;
+            if (error) {
+                // Title could not be set
+                console.error(message);
+                this.props.addGlobalAPIError(response);
+            } else {
+                this.props.updateImage({
+                    ...image,
+                    ocr_text: OCRText,
+                    ocr_boxes: OCRBoxes
+                });
+            }
+            this.setState({ scanningOCR : false });
+        }
+        catch { this.props.logout(); }
     }
     componentDidMount() {
         this.loadImage();
@@ -88,6 +140,8 @@ export default connect(
     }
     componentWillUnmount() {
         this.cancelled = true;
+        
+        this.state.url && URL.revokeObjectURL(this.state.url);
     }
     render() {
         // let loading = this.props.images === null;
@@ -103,7 +157,7 @@ export default connect(
         return (
             <div className="ImageView">
                 {
-                    (image === undefined || this.props.userData === null || this.state.imgSrcLoading) ? (
+                    (image === undefined || this.props.userData === null || !this.state.url) ? (
                         <Loading loading={true}/>
                     ) : (() => {
                         image = image!;
@@ -122,10 +176,10 @@ export default connect(
                                     })()}
                                     {/* <div className="image-view-img-container mx-auto"> */}
                                         <img className="image-view-img mx-auto"
-                                             src={image.url}
+                                             src={this.state.url}
                                              style={{
                                                 cursor: "pointer",
-                                                display: this.state.imgSrcLoading ? "none" : undefined
+                                                display: !this.state.url ? "none" : undefined
                                              }}
                                              onClick={() => {
                                                 // this.props.history.push(`/raw_image/${image!.id}`);
@@ -150,7 +204,7 @@ export default connect(
                             <div className="image-info-container bg-light" style={{"padding": "1.75rem 0"}}>
                                 <div className="image-info" style={{fontSize: "18px"}}>
                                     <div className="d-flex align-items-center mb-3">
-                                        <FaUserCircle style={{fontSize: "2em", marginRight: ".5rem"}}/>
+                                        <Avatar name={this.props.userData && this.props.userData.username} className="mr-2" size="36" textSizeRatio={2} round style={{userSelect: "none"}}/>
                                         <span style={{fontSize: "1em", fontWeight: 600}}>{this.props.userData && this.props.userData.username}</span>
                                     </div>
                                     
@@ -174,26 +228,51 @@ export default connect(
                                                             if (result.error) {
                                                                 // Title could not be set
                                                                 console.error(result.message);
+                                                                this.props.addGlobalAPIError(result);
+                                                            } else {
+                                                                this.props.updateImage({
+                                                                    ...image,
+                                                                    title: message
+                                                                });
                                                             }
-                                                            this.props.updateImage({
-                                                                ...image,
-                                                                title: message
-                                                            });
                                                         }
                                                         catch { this.props.logout(); }
                                                     }}
                                         />
                                     </div>
-                                    <div className="mb-3" style={{fontSize: ".85em"}}>
-                                        {
-                                            new Date(image.timestamp).toLocaleDateString("us-EN", {
-                                                year: 'numeric',
-                                                month: 'short',
-                                                day: 'numeric'
-                                            })
-                                        }
+                                    <div style={{fontSize: ".85em"}}>
+                                        <div className="mb-2">
+                                            {
+                                                new Date(image.timestamp).toLocaleDateString("us-EN", {
+                                                    year: 'numeric',
+                                                    month: 'short',
+                                                    day: 'numeric'
+                                                })
+                                            }
+                                        </div>
+                                        <div className="py-1 mb-2">
+                                            <a href="javascript:void(0);" onClick={() => this.setState({ detailsOpen: !this.state.detailsOpen})}>Details</a>
+                                            <Collapse in={this.state.detailsOpen}>
+                                                <div id="details-collapse" className="p-2">
+                                                    <div className="my-2 text-muted"><b>Dimensions:</b> {image.width} x {image.height} px</div>
+                                                    <div className="mb-2 text-muted"><b>File type:</b> {image.file_type}</div>
+                                                    <div className="text-muted"><b>Bit depth:</b> {image.bit_depth}</div>
+                                                </div>
+                                            </Collapse>
+                                        </div>
+                                        <div className="mt-1">
+                                            {
+                                                image.ocr_text ? (
+                                                    <pre>{image.ocr_text}</pre>
+                                                ) : (this.state.scanningOCR ? (
+                                                    <div className="text-muted loading">Scanning</div>
+                                                ) : (
+                                                    <a href="javascript:void(0);" onClick={() => this.scanOCR()}>Scan OCR</a>
+                                                ))
+                                            }
+                                        </div>
+                                        <div className="mt-3"><TagContainer image={image}/></div>
                                     </div>
-                                    <div style={{fontSize: ".85rem"}}><TagContainer image={image}/></div>
                                 </div>
                             </div>
                             </>
@@ -214,6 +293,7 @@ enum State {
 interface TcP {
     logout: Function,
     updateImage: Function,
+    addGlobalAPIError: Function,
     image: image
 };
 
@@ -226,7 +306,7 @@ const TagContainer = connect(
     (state: any) => ({
         images: state.application.images,
     }),
-    { logout, updateImage }
+    { logout, updateImage, addGlobalAPIError }
 )(class extends Component<TcP, TcS> {
     constructor(props: TcP) {
         super(props);
@@ -262,6 +342,7 @@ const TagContainer = connect(
                                     if (result.error) {
                                         // Tag could not be added
                                         console.error(result.message);
+                                        this.props.addGlobalAPIError(result);
                                     } else {
                                         this.props.updateImage({
                                             ...this.props.image,
@@ -301,7 +382,8 @@ interface TP {
     tagProps?: I,
     closeButton: boolean
     logout: Function,
-    updateImage: Function
+    updateImage: Function,
+    addGlobalAPIError: Function
 };
 
 interface TS {
@@ -310,7 +392,7 @@ interface TS {
 
 const Tag = connect(
     undefined,
-    { logout, updateImage }
+    { logout, updateImage, addGlobalAPIError }
 )(class extends Component<TP, TS> {
     static defaultProps = {
         closeButton: true
@@ -338,6 +420,7 @@ const Tag = connect(
                                 if (result.error) {
                                     // Tag could not be added
                                     console.error(result.message);
+                                    this.props.addGlobalAPIError(result);
                                 } else {
                                     this.props.updateImage({
                                         ...this.props.image,

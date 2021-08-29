@@ -5,7 +5,7 @@ import ImageContainer from '../../component/ImageContainer';
 import { getApplicationLoading } from '../../store/selectors';
 import { applicationInterface } from '../../store/reducers/application';
 import { Jumbotron } from 'react-bootstrap';
-import { addImages, logout, fetchedAllImages } from '../../store/actions';
+import { addImages, logout, fetchedAllImages, addGlobalAPIError } from '../../store/actions';
 import { WEBSITE_NAME } from '../../config';
 import { image } from '../../store/reducers/application';
 import User from '../../api/user';
@@ -17,7 +17,8 @@ interface Props {
     applicationLoading: boolean
     images: image[]
     addImages: Function
-    setFetchedAllImages: Function
+    setFetchedAllImages: Function,
+    addGlobalAPIError: Function
     logout: Function
 };
 
@@ -28,16 +29,19 @@ class HomeView extends Component<Props, {}> {
 
         this.fetchImages = this.fetchImages.bind(this);
     }
-    fetchImages() {
+    async fetchImages() {
         if (!this.props.fetchedAllImages) {
-            User.getImages().then((images: image[]) => {
-                if (!this.cancelled) {
+            const response = await User.getImages();
+            const { message, error, images } = response;
+            if (!this.cancelled) {
+                if (error) {
+                    console.error(message);
+                    this.props.addGlobalAPIError(response);
+                } else {
                     this.props.addImages(images);
                     this.props.setFetchedAllImages();
                 }
-            }).catch((error: AuthenticationError) => {
-                this.props.logout();
-            });
+            }
         }
     }
     componentWillUnmount() {
@@ -83,5 +87,5 @@ export default connect(
         images: state.application.images,
         fetchedAllImages: state.application.fetchedAllImages
     }),
-    { addImages, logout, setFetchedAllImages: fetchedAllImages }
+    { addImages, logout, setFetchedAllImages: fetchedAllImages, addGlobalAPIError }
 )(HomeView);

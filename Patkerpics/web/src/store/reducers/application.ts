@@ -1,18 +1,16 @@
-import { SET_APPLICATION_STATE, ADD_IMAGES, REMOVE_IMAGE, UPDATE_IMAGE, FETCHED_ALL_IMAGES } from '../actionTypes';
-
-export interface Dimension {
-    width: number,
-    height: number
-}
+import { SET_APPLICATION_STATE, ADD_IMAGES, REMOVE_IMAGE, UPDATE_IMAGE, FETCHED_ALL_IMAGES, ADD_GLOBAL_ERROR } from '../actionTypes';
 
 export interface image {
     id: number,
     uid: string,
     url: string,
-    bitDepth: number,
-    dimensions: Dimension,
-    fileType: string,
-    fileSize: number,
+    bit_depth: number,
+    width: number,
+    height: number,
+    ocr_text: string,
+    ocr_boxes: string,
+    file_type: string,
+    file_size: number,
     timestamp: number,
     title: string,
     tags: string[],
@@ -24,19 +22,34 @@ export interface userData {
     username: string,
     email: string,
     created: number,
-    bitsUsed: number
+    bytes_used: number
+}
+
+export interface ErrorInfo {
+    status_code?: number,
+    substatus_code?: number,
+    stack_trace?: string,
+    jwt_authentication_error?: boolean
+}
+
+export interface ApplicationError {
+    title: string,
+    message: string,
+    stack_trace?: string
 }
 
 export interface applicationInterface {
     images: image[],
     userData: userData | null
-    fetchedAllImages: boolean
+    fetchedAllImages: boolean,
+    errors: ApplicationError[]
 };
 
 export const initialState: applicationInterface = {
     images: [],
     userData: null,
-    fetchedAllImages: false
+    fetchedAllImages: false,
+    errors: []
 };
 
 export default function applicationReducer(state: applicationInterface = initialState, action: any) {
@@ -82,6 +95,13 @@ export default function applicationReducer(state: applicationInterface = initial
             return {
                 ...state,
                 fetchedAllImages: true
+            };
+        }
+        case ADD_GLOBAL_ERROR: {
+            const { type, applicationError } = action;
+            return {
+                ...state,
+                errors: state.errors.concat(applicationError)
             };
         }
         default:

@@ -3,16 +3,17 @@ from flask import Response, request, send_file, stream_with_context, make_respon
 from flask_jwt_extended import (
     JWTManager, create_access_token, create_refresh_token,
     jwt_required, jwt_refresh_token_required, get_jwt_identity,
-    get_raw_jwt, set_access_cookies, set_refresh_cookies, unset_access_cookies, unset_refresh_cookies,
+    get_raw_jwt, unset_access_cookies, unset_refresh_cookies,
 )
-from flask_jwt_extended.config import config as jwt_config
 from sqlalchemy.event import listens_for
 from models import *
 from hash import hash, verify_hash
 from api import app, api, jwt, socket
 from db import db
+from utils import custom_set_access_cookies, custom_set_refresh_cookies
 from threading import Thread
 from time import time, sleep
+from mimetypes import guess_type
 import json
 import logging
 import time
@@ -25,16 +26,21 @@ clients = {}
 @socket.on("connect")
 @jwt_required
 def connect():
+    try:
+        print("CONNECT TEST")
 
-    current_user = UserModel.query.filter_by(username=get_jwt_identity()).first()
+        current_user = UserModel.query.filter_by(username=get_jwt_identity()).first()
 
-    client_id = request.sid
-    clients[current_user.id] = client_id
+        client_id = request.sid
+        clients[current_user.id] = client_id
+    except Exception as e:
+        print("foobar", e)
+        print(1243132)
+
 
     # images = ImageModel.query.filter_by(user_id=current_user.id).all()
 
     # socket.emit("initialState", [image.serialize() for image in images], room=client_id)
-
 
 @socket.on("disconnect")
 def disconnect():
@@ -84,9 +90,19 @@ class StaticImage(Resource):
         current_user = UserModel.query.filter_by(username=get_jwt_identity()).first()
         image = ImageModel.query.filter_by(user_id=current_user.id, uid=image_uid).first()
         if image != None:
-            return send_file(image.get_path())
+            # `guess_types` can't correctly parse just an extension, so you need to provide a
+            # dummy file name in order to get the mime type.
+            return send_file(image.get_path(), mimetype=guess_type("x." + image.file_type)[0])
+        else:
+            return {
+                "message": f"Image<id=\"{image_uid}\"> does not exist for user \"{get_jwt_identity()}\".",
+                "error": True,
+                "error_info": {
+                    "status_code": 404
+                }
+            }
 
-
+"""
 @api.route("/image/<int:image_id>/modify")
 class ModifyImage(Resource):
     @jwt_required
@@ -96,32 +112,84 @@ class ModifyImage(Resource):
         if image != None:
             commands = request.get_json()
             for command in commands:
-                command["success"] = True
+                command["message"] = ""
+                command["error"] = False
                 if command.get("type") == "setTitle":
                     image.title = command.get("title")
                     image.update()
+                    command["message"] = "Successfully set title."
                 elif command.get("type") == "addTag":
                     tag = command.get("tag")
                     try:
                         TagModel(image_id=image_id, name=tag).save()
+                        command["message"] = "Sucessfully added tag."
                     except:
                         # Not a unique tag for the image
-                        command["success"] = False
-                        command["message"] = "Tag already exists"
+                        command["error"] = True
+                        command["message"] = f"Tag<name=\"{tag}\"> already exists."
                 elif command.get("type") == "removeTag":
                     tag = command.get("tag")
                     results = TagModel.query.filter_by(image_id=image_id, name=tag)
                     if results.count() > 0:
                         results.first().delete()
+                        command["message"] = f"Successfully deleted tag<name=\"{tag}\">."
                     else:
-                        command["success"] = False
-                        command["message"] = "Tag does not exist"
+                        command["error"] = True
+                        command["message"] = f"Tag<name=\"{tag}\"> does not exist for image<id={image_id}>."
 
             socket_id = clients.get(current_user.id)
             if socket_id != None:
                 socket.emit("updateImage", image.serialize(), room=socket_id)
 
             return commands
+"""
+@api.route("/image/<int:image_id>/modify")
+class ModifyImage(Resource):
+    @jwt_required
+    def post(self, image_id):
+        current_user = UserModel.query.filter_by(username=get_jwt_identity()).first()
+        image = ImageModel.query.filter_by(user_id=current_user.id, image_id=image_id).first()
+        if image != None:
+            body = request.get_json()
+
+            response = {
+                "message": "",
+                "error": False
+            }
+
+            if body.get("type") == "setTitle":
+                image.title = body.get("title")
+                image.update()
+                response["message"] = "Successfully set title."
+            elif body.get("type") == "addTag":
+                tag = body.get("tag")
+                try:
+                    TagModel(image_id=image_id, name=tag).save()
+                    response["message"] = "Sucessfully added tag."
+                except:
+                    # Not a unique tag for the image
+                    response["error"] = True
+                    response["message"] = f"Tag<name=\"{tag}\"> already exists."
+            elif body.get("type") == "removeTag":
+                tag = body.get("tag")
+                results = TagModel.query.filter_by(image_id=image_id, name=tag)
+                if results.count() > 0:
+                    results.first().delete()
+                    response["message"] = f"Successfully deleted tag<name=\"{tag}\">."
+                else:
+                    response["error"] = True
+                    response["message"] = f"Tag<name=\"{tag}\"> does not exist for image<id={image_id}>."
+
+            if response["error"]:
+                response["error_info"] = {
+                    "status_code": 400
+                }
+
+            socket_id = clients.get(current_user.id)
+            if socket_id is not None:
+                socket.emit("updateImage", image.serialize(), room=socket_id)
+
+            return response
 
 
 # @api.route("/image/<int:image_id>/modify")
@@ -150,7 +218,19 @@ class Image(Resource):
     def get(self, image_id):
         current_user = UserModel.query.filter_by(username=get_jwt_identity()).first()
         image = ImageModel.query.filter_by(user_id=current_user.id, image_id=image_id).first()
-        return image.serialize() if image is not None else None
+        if image is None:
+            return {
+                "message": "Failed to retrieve image: image<id={image_id}> does not exist.",
+                "error": True,
+                "error_info": {
+                    "status_code": 404
+                }
+            }
+        else:
+            return {
+                "message": "Success",
+                "image": image.serialize()
+            }
 
     @jwt_required
     def delete(self, image_id):
@@ -177,16 +257,21 @@ class Images(Resource):
     @jwt_required
     def get(self):
         current_user = UserModel.query.filter_by(username=get_jwt_identity()).first()
-        return [
-            image.serialize() for image in ImageModel.query.filter_by(user_id=current_user.id).all()
-        ]
+        return {
+            "message": "Success",
+            "images": [image.serialize() for image in ImageModel.query.filter_by(user_id=current_user.id).all()]
+        }
 
 @api.route("/user_data")
 class UserData(Resource):
     @jwt_required
     def get(self):
         current_user = UserModel.query.filter_by(username=get_jwt_identity()).first()
-        return current_user.serialize()
+        user_data = current_user.serialize()
+        return {
+            "message": "Success",
+            "user_data": user_data
+        }
 
 login_parser = api.parser()
 login_parser.add_argument("username", type=str, help="Username", location="json", required=True)
@@ -202,7 +287,11 @@ class Login(Resource):
         if not current_user:
             return {
                 "message": f"User \"{username}\" does not exist",
-            }, 403
+                "error": True,
+                "error_info": {
+                    "status_code": 422
+                }
+            }
 
         if verify_hash(password, current_user.password):
             access_token = create_access_token(identity=username)
@@ -213,37 +302,18 @@ class Login(Resource):
                 "refresh_token": refresh_token,
                 "user_data": current_user.serialize()
             }))
-            set_access_cookies(resp, access_token)
-            # Basically just resets the cookie but with httponly=False so that the client
-            # can modify it without an API call.
-            # The original function is still called here in order to set the CSRF cookie.
-            resp.set_cookie(
-                jwt_config.access_cookie_name,
-                access_token,
-                max_age=jwt_config.cookie_max_age,
-                secure=jwt_config.cookie_secure,
-                domain=jwt_config.cookie_domain,
-                path=jwt_config.access_cookie_path,
-                samesite=jwt_config.cookie_samesite,
-                httponly=False
-            )
-            set_refresh_cookies(resp, refresh_token)
-            resp.set_cookie(
-                jwt_config.refresh_cookie_name,
-                refresh_token,
-                max_age=jwt_config.cookie_max_age,
-                secure=jwt_config.cookie_secure,
-                domain=jwt_config.cookie_domain,
-                path=jwt_config.access_cookie_path,
-                samesite=jwt_config.cookie_samesite,
-                httponly=False
-            )
+            custom_set_access_cookies(resp, access_token)
+            custom_set_refresh_cookies(resp, refresh_token)
 
             return resp
         else:
             return {
-                       "message": f"Invalid password",
-                   }, 403
+                "message": f"Invalid password.",
+                "error": True,
+                "error_info": {
+                    "status_code": 422
+                }
+            }
 
 register_parser = api.parser()
 register_parser.add_argument("username", type=str, help="Username", location="json", required=True)
@@ -263,17 +333,29 @@ class Register(Resource):
             inputs.email(check=True)(email)
         except:
             return {
-                "message": f"Invalid email."
-            }, 403
+                "message": f"Invalid email.",
+                "error": True,
+                "error_info": {
+                    "status_code": 422
+                }
+            }
 
         if UserModel.query.filter_by(username=username).first():
             return {
                 "message": f"User \"{username}\" already exists.",
-            }, 403
+                "error": True,
+                "error_info": {
+                    "status_code": 422
+                }
+            }
         if UserModel.query.filter_by(email=email).first():
             return {
                 "message": f"User already registered under email \"{email}\"",
-            }, 403
+                "error": True,
+                "error_info": {
+                    "status_code": 422
+                }
+            }
 
         user = UserModel(
             username=username,
@@ -290,28 +372,34 @@ class Register(Resource):
                 "access_token": access_token,
                 "refresh_token": refresh_token
             }))
-            set_access_cookies(resp, access_token)
-            set_refresh_cookies(resp, refresh_token)
+            custom_set_access_cookies(resp, access_token)
+            custom_set_refresh_cookies(resp, refresh_token)
             return resp
         except Exception as e:
             print(e)
             return {
-                "message": "Internal server error"
-            }, 500
+                "message": "Internal server error",
+                "error": True,
+                "error_info": {
+                    "status_code": 500
+                }
+            }
 
 
 @api.route("/refresh")
 class RefreshToken(Resource):
     @jwt_refresh_token_required
     def post(self):
-        print("RECEIVED REFRESH REQUEST")
         identity = get_jwt_identity()
         access_token = create_access_token(identity=identity)
+        refresh_token = create_refresh_token(identity=identity)
         resp = make_response(json.dumps({
-            "message": "Refreshed token for user \"" + identity + "\"",
-            "access_token": access_token
+            "message": "Refreshed token for JWT \"" + identity + "\"",
+            "access_token": access_token,
+            "refresh_token": refresh_token
         }))
-        set_access_cookies(resp, access_token)
+        custom_set_access_cookies(resp, access_token)
+        custom_set_refresh_cookies(resp, refresh_token)
         return resp
 
 

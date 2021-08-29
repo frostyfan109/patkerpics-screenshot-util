@@ -1,12 +1,16 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import { Navbar, Nav, Form, Button, Modal, Alert, FormControl, Dropdown, DropdownButton } from 'react-bootstrap';
+import { Navbar, Nav, Form, Button, Modal, Alert, FormControl, ProgressBar } from 'react-bootstrap';
+import { Dropdown, DropdownToggle, DropdownMenu } from 'reactstrap';
 import { LinkContainer } from 'react-router-bootstrap';
-import { FaCameraRetro } from 'react-icons/fa';
+import { FaCameraRetro, FaPlus, FaCamera } from 'react-icons/fa';
+import { IoIosAdd } from 'react-icons/io';
 import Avatar from 'react-avatar';
+import prettyBytes from 'pretty-bytes';
 import { login, logout, register } from '../../../store/actions';
 import { loginInterface as loginStateInterface } from '../../../store/reducers/login';
 import { userData } from '../../../store/reducers/application';
+import { getBytesUsed } from '../../../store/selectors';
 import { WEBSITE_NAME } from '../../../config';
 import Cookies from 'js-cookie';
 import User from '../../../api/user';
@@ -76,19 +80,73 @@ const Header = connect(
 });
 interface ADP {
     data: userData
+    bytesUsed: number
+    logout: Function
 };
 interface ADS {
-    
+    dropdownOpen: boolean,
+    avatarModal: boolean
 }
-class AvatarDropdown extends Component<ADP, ADS> {
+const AvatarDropdown = connect(
+    (state: any) => ({
+        bytesUsed: getBytesUsed(state)
+    }),
+    { logout }
+)(class AvatarDropdown extends Component<ADP, ADS> {
     constructor(props: ADP) {
         super(props);
         
         this.state = {
-
+            dropdownOpen: false,
+            avatarModal: false
         };
+
+        this.toggleDropdown = this.toggleDropdown.bind(this);
     }
-}
+    private toggleDropdown() {
+        this.setState({ dropdownOpen : !this.state.dropdownOpen });
+    }
+    render() {
+        return (
+            <Dropdown isOpen={this.state.dropdownOpen}
+                      toggle={this.toggleDropdown}
+                      className="avatar-dropdown-container">
+                <DropdownToggle id="avatarDropdown" tag="div" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                    <Avatar name={this.props.data.username} size="40" textSizeRatio={2} round style={{userSelect: "none"}}/>
+                </DropdownToggle>
+                <DropdownMenu className="py-2 px-1" right>
+                    <div className="d-flex align-items-center py-2 px-2">
+                        <div className="user-avatar-container mr-3" onClick={() => this.setState({ avatarModal : true })} style={{cursor: "pointer"}}>
+                            <Avatar name={this.props.data.username}
+                                    className="user-avatar"
+                                    size="54"
+                                    textSizeRatio={2}
+                                    round
+                                    style={{userSelect: "none"}}></Avatar>
+                            <div className="add-icon">
+                                <FaCamera/>
+                                {/* <IoIosAdd/> */}
+                                {/* CHANGE */}
+                            </div>
+                        </div>
+                        <div>
+                            <h6 className="m-0">{this.props.data.username}</h6>
+                            <div>{this.props.data.email}</div>
+                            {/* 1E10 Bytes = 10 GB */}
+                            <ProgressBar className="mt-2" style={{height: "4px"}} min={0} max={1} now={this.props.bytesUsed/1E10}/>
+                            <div className="text-muted text-nowrap">
+                                {prettyBytes(this.props.bytesUsed).replace(" ", "")} of 10GB used
+                            </div>
+                        </div>
+                    </div>
+                    <div className="px-2 py-2">
+                        <Button variant="primary" className="w-100" onClick={() => this.props.logout()}>Sign out</Button>
+                    </div>
+                </DropdownMenu>
+            </Dropdown>
+        );
+    }
+})
 
 interface LoginModalProps {
     login: Function,

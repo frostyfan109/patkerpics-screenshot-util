@@ -7,8 +7,17 @@ if (process.env.NODE_ENV === "development") {
 else {
     BASE_API_URL = window.location.origin;
 }
+
+interface Response {
+    status: number,
+    headers: any,
+    [key: string]: any
+}
+
 export interface APIResponse {
-    message?: string,
-    error: boolean
+    resp: Response|null,
+    message: string,
+    error?: boolean,
+    [key: string]: any
 };
 export class AuthenticationError extends ExtendableError {}

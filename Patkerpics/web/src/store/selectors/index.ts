@@ -1,5 +1,5 @@
 import { createSelector } from 'reselect';
-import { applicationInterface } from '../reducers/application';
+import { applicationInterface, image } from '../reducers/application';
 
 const getApplicationState = (state: any): applicationInterface => state.application;
 
@@ -13,3 +13,12 @@ export const getApplicationLoading = createSelector(
         );
     }
 );
+
+const getImageState = (state: any): image[] => state.application.images;
+
+export const getBytesUsed = createSelector(
+    [getImageState],
+    (images: image[]): number => {
+        return images.reduce((acc, cur) => acc + cur.file_size, 0);
+    }
+)

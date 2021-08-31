@@ -8,3 +8,7 @@ flask_jwt_extended==3.25.0
 Flask-SocketIO==4.3.2
 PyJWT==1.7.1
 Pillow
+pytesseract
+rake_nltk
+fuzzywuzzy
+python-Levenshtein

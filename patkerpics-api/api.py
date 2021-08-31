@@ -26,7 +26,17 @@ def after_request(response):
     response.headers.add('Access-Control-Expose-Headers', 'Update-Access-Token, Update-Refresh-Token')
 
     data = response.get_json()
-    if isinstance(data, dict) and data.get("msg") is not None:
+    # Flask-RESTPlus payload validation error (invalid request arguments)
+    if isinstance(data, dict) and data.get("errors") is not None:
+        data["error"] = True
+        data["error_info"] = {
+            "status_code": response.status_code,
+            "extra_info": data["errors"]
+        }
+        del data["errors"]
+        response.status_code = 200
+        response.data = json.dumps(data)
+    elif isinstance(data, dict) and data.get("msg") is not None:
         # print(get_jwt_identity())
         data["message"] = data["msg"]
         data["error"] = True
@@ -106,7 +116,7 @@ class JWTAuthMiddleware:
                 print("no identity")
 
         except Exception as e:
-            # print(e)
+            print(e)
             pass
 
         def new_start_response(status, response_headers, exc_info=None):

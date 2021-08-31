@@ -4,13 +4,14 @@ import { connect } from 'react-redux';
 import { logout, addImage, updateImage, addGlobalAPIError } from '../../store/actions';
 import { Redirect, RouteComponentProps, withRouter } from 'react-router-dom';
 import classNames from 'classnames';
+import { sleep } from '../../utils';
 import User from '../../api/user';
 import Loading from '../../component/Loading';
-import { image, userData } from '../../store/reducers/application';
+import { image, userData, Keyword } from '../../store/reducers/application';
 import './ImageView.css';
 import OutsideClickHandler from 'react-outside-click-handler';
 import { AuthenticationError, APIResponse } from '../../api';
-import { Accordion, Card, Button, Collapse } from 'react-bootstrap';
+import { Accordion, Card, Button, Collapse, ListGroup, ButtonGroup } from 'react-bootstrap';
 import Avatar from 'react-avatar';
 const InlineEdit = require('react-edit-inline2').default;
 interface P extends RouteComponentProps {
@@ -29,8 +30,16 @@ interface S {
     preloadImage: HTMLImageElement | null,
     detailsOpen: boolean,
     scanningOCR: boolean,
-    url?: string
+    url?: string,
+    keywords: Keyword[]|null,
+    activeKeywords: string[],
+    loadingKeywords: boolean,
+    addingSelectedKeywords: boolean
 }
+
+const KEYWORDS_MAX_DISPLAY: number = 5;
+const KEYWORDS_MIN_SCORE: number = 3;
+const FUZZY_SCORE_CUTOFF: number = .8;
 
 export default connect(
     (state: any) => ({
@@ -51,7 +60,11 @@ export default connect(
             preloadImage: null,
             detailsOpen: false,
             scanningOCR: false,
-            url: undefined
+            url: undefined,
+            keywords: null,
+            activeKeywords: [],
+            loadingKeywords: false,
+            addingSelectedKeywords: false
         };
 
         this.loadImage = this.loadImage.bind(this);
@@ -67,6 +80,15 @@ export default connect(
     }
     switchImage(id: number) {
         this.props.history.push(`/image/${id}`);
+    }
+    toggleKeyword(keyword: string) {
+        const { activeKeywords } = this.state;
+        if (activeKeywords.includes(keyword)) {
+            activeKeywords.splice(activeKeywords.indexOf(keyword), 1);
+        } else {
+            activeKeywords.push(keyword)
+        }
+        this.setState({ activeKeywords });
     }
     async preloadImage(image: image): Promise<void> {
         // It's important to refresh here since accessing /raw_image/xxx/ requires credentials
@@ -111,26 +133,101 @@ export default connect(
             this.preloadImage(this.getImage()!);
         }
     }
-    async scanOCR() {
-        this.setState({ scanningOCR : true });
+    async extractKeywords() {
+        this.setState({ loadingKeywords: true });
+        const response = await User.extractKeywords(this.imageId(), FUZZY_SCORE_CUTOFF);
+        const { message, error, keywords } = response;
+        if (error) {
+            console.error(message);
+            this.props.addGlobalAPIError(response);
+        } else {
+            const currentTags = this.getImage()!.tags;
+            // Only show keywords extracted that aren't already tags to avoid errors from trying to upload
+            // duplicate tags (and avoid redundancy).
+            const keywordsFiltered = keywords.filter((k) => !currentTags.includes(k.name))
+                                             .filter((k) => k.score >= KEYWORDS_MIN_SCORE);
+            this.setState({
+                keywords: keywords.length === 0 ? null : keywordsFiltered,
+                activeKeywords: []
+            });
+        }
+        /*
+        await sleep(2500);
+        // Make sure keywords aren't already tags.
+        this.setState({
+            keywords: [
+                {name: "Foo", score: 15},
+                {name: "Bar", score: 5},
+                {name: "Baz", score: 12},
+                {name: "Spam", score: 2}
+            ]
+        });
+        */
+        this.setState({ loadingKeywords: false });
+    }
+    async clearOCR() {
+        this.setState({ scanningOCR : false, loadingKeywords: false, keywords: null, activeKeywords: [] });
+        const image = this.getImage()!;
+        await User.clearOCR(image.id);
+    }
+    async scanOCR(rescan: boolean=false) {
+        this.setState({ scanningOCR : true, loadingKeywords: false, keywords: null, activeKeywords: [] });
         const image = this.getImage()!;
         try {
-            const response = await User.scanOCR(image.id);
+            const response = await User.scanOCR(image.id, rescan);
             const { message, error, OCRText, OCRBoxes } = response;
             if (error) {
                 // Title could not be set
                 console.error(message);
                 this.props.addGlobalAPIError(response);
             } else {
+                /*
                 this.props.updateImage({
                     ...image,
                     ocr_text: OCRText,
                     ocr_boxes: OCRBoxes
                 });
+                */
             }
             this.setState({ scanningOCR : false });
         }
         catch { this.props.logout(); }
+    }
+    async addSelectedTags() {
+        this.setState({ addingSelectedKeywords: true });
+        const { keywords, activeKeywords } = this.state;
+        const result = await User.addTags(this.imageId(), activeKeywords);
+        if (result.error) {
+            console.error(result.message);
+            this.props.addGlobalAPIError(result);
+        } else {
+            // this.props.updateImage({
+            //     ...this.getImage(),
+            //     tags: this.getImage()!.tags.concat(activeKeywords)
+            // });
+        }
+        /*
+        for (let i=0; i<activeKeywords.length; i++) {
+            const keyword = activeKeywords[i];
+            const result = await User.addTag(this.imageId(), keyword);
+            if (result.error) {
+                // Tag could not be added
+                console.error(result.message);
+                this.props.addGlobalAPIError(result);
+            } else {
+                // this.props.updateImage({
+                //     ...this.props.image,
+                //     tags: this.props.image.tags.concat(this.state.input)
+                // })
+                // this.props.updateTag(this.props.image.id, this.state.input, UpdateTagType.ADD);
+            }
+        }
+        */
+        this.setState({
+            keywords: keywords!.filter((keyword) => !activeKeywords.includes(keyword.name)),
+            activeKeywords: [],
+            addingSelectedKeywords: false
+        });
     }
     componentDidMount() {
         this.loadImage();
@@ -255,15 +352,95 @@ export default connect(
                                             <Collapse in={this.state.detailsOpen}>
                                                 <div id="details-collapse" className="p-2">
                                                     <div className="my-2 text-muted"><b>Dimensions:</b> {image.width} x {image.height} px</div>
-                                                    <div className="mb-2 text-muted"><b>File type:</b> {image.file_type}</div>
+                                                    <div className="mb-2 text-muted"><b>File type:</b> {image.filename.split(".").pop()}</div>
                                                     <div className="text-muted"><b>Bit depth:</b> {image.bit_depth}</div>
                                                 </div>
                                             </Collapse>
                                         </div>
                                         <div className="mt-1">
                                             {
-                                                image.ocr_text ? (
-                                                    <pre>{image.ocr_text}</pre>
+                                                image.ocr_text !== null ? (
+                                                    <Card className="d-none d-md-flex">
+                                                        {/* Note: OCR component is hidden on mobile devices due to the difficulty of rendering
+                                                            such a bulky module into a small horizontal space fluidly. Could be updated in the
+                                                            future so that the rendering is completely different on mobile devices.  */}
+                                                        <Card.Header as="h6"
+                                                                     className="d-flex align-items-center justify-content-between p-2 hidden">
+                                                            <span className="">OCR</span>
+                                                            <div>
+                                                                <Button className=""
+                                                                        variant={this.state.scanningOCR ? "outline-primary" : "primary"}
+                                                                        disabled={this.state.scanningOCR}
+                                                                        size="sm"
+                                                                        onClick={() => !this.state.scanningOCR && this.scanOCR(true)}>
+                                                                    {this.state.scanningOCR ? "Loading" : "Rescan"}
+                                                                </Button>
+                                                                <Button className="ml-1"
+                                                                        variant="outline-secondary"
+                                                                        size="sm"
+                                                                        onClick={() => this.clearOCR()}>
+                                                                    Clear
+                                                                </Button>
+                                                            </div>
+                                                        </Card.Header>
+                                                        <Card.Body className="p-3">
+                                                            {
+                                                                image.ocr_text === "" ? (
+                                                                    <span>No text found.</span>
+                                                                ) : (
+                                                                    <pre className="mb-0">{image.ocr_text}</pre>
+                                                                )
+                                                            }
+                                                        </Card.Body>
+                                                        {
+                                                            image.ocr_text !== "" && (
+                                                                <Card.Footer>
+                                                                    {
+                                                                        this.state.keywords !== null ? (
+                                                                            this.state.keywords.length === 0 ? (
+                                                                                <span>No new keywords found.</span>
+                                                                            ) : (
+                                                                                <div className="d-flex align-items-center justify-content-between">
+                                                                                    <ButtonGroup className="flex-wrap mr-2">
+                                                                                        {
+                                                                                            this.state.keywords.sort((a,b) => b.score - a.score)
+                                                                                                               .slice(0, KEYWORDS_MAX_DISPLAY)
+                                                                                                               .map((keyword) => {
+                                                                                                const variant = keyword.fuzzed ? "success" : "primary";
+                                                                                                return (
+                                                                                                    <Button key={keyword.name}
+                                                                                                        variant={(this.state.activeKeywords.includes(keyword.name) ? variant : "outline-" + variant) as any}
+                                                                                                        style={{whiteSpace: "nowrap"}}
+                                                                                                        onClick={() => this.toggleKeyword(keyword.name)}>
+                                                                                                        {keyword.name}
+                                                                                                    </Button>
+                                                                                                );
+                                                                                            })
+                                                                                        }
+                                                                                    </ButtonGroup>
+                                                                                    <div className="d-flex align-items-center text-nowrap flex-wrap justify-content-center">
+                                                                                        <Button variant="primary" disabled={this.state.addingSelectedKeywords} size="sm" onClick={() => this.addSelectedTags()}>Add</Button>
+                                                                                        <Button className="m-1" variant="outline-secondary" size="sm" onClick={() => this.setState({ keywords: null, activeKeywords: [], addingSelectedKeywords: false })}>
+                                                                                            Clear all
+                                                                                        </Button>
+                                                                                    </div>
+                                                                                </div>
+                                                                            )
+                                                                        ) : (
+                                                                            this.state.loadingKeywords ? (
+                                                                                <span className="text-muted loading">Loading keywords</span>
+                                                                            ) : (
+                                                                                <a href="javascript:void(0);" onClick={() => this.extractKeywords()}>Run keyword extraction</a>
+                                                                            )
+                                                                        )
+                                                                    }
+                                                                </Card.Footer>
+                                                            )
+                                                        }
+                                                        {/* <Card.Footer className="bg-light">
+                                                            
+                                                        </Card.Footer> */}
+                                                    </Card>
                                                 ) : (this.state.scanningOCR ? (
                                                     <div className="text-muted loading">Scanning</div>
                                                 ) : (

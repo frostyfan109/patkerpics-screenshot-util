@@ -9,7 +9,7 @@ export interface image {
     height: number,
     ocr_text: string,
     ocr_boxes: string,
-    file_type: string,
+    filename: string,
     file_size: number,
     timestamp: number,
     title: string,
@@ -23,20 +23,38 @@ export interface userData {
     email: string,
     created: number,
     bytes_used: number
+};
+
+export interface Keyword {
+    name: string,
+    score: number,
+    // If a keyword is coerced into an existing tag, fuzzed is set to
+    // true, fuzzed_score is set to the ratio between original_value
+    // and tag, original_value is set to the original keyword, and
+    // other_tags is set to other potential tags it could have been
+    // fuzzed into.
+    fuzzed: boolean,
+    fuzzed_score: number,
+    original_value?: string,
+    // Currently not used anywhere. Not actually a Keyword array, but contains
+    // the ratios between other tags and original_value, where `name` is other
+    // tag names and `score` is their ratio.
+    other_tags?: Keyword[]
 }
 
 export interface ErrorInfo {
     status_code?: number,
     substatus_code?: number,
+    extra_info?: any,
     stack_trace?: string,
     jwt_authentication_error?: boolean
-}
+};
 
 export interface ApplicationError {
     title: string,
     message: string,
     stack_trace?: string
-}
+};
 
 export interface applicationInterface {
     images: image[],

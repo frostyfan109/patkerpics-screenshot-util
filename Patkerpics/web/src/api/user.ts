@@ -2,7 +2,7 @@ import axios from 'axios';
 import io from 'socket.io-client';
 import * as qs from 'qs';
 import { BASE_API_URL, APIResponse, AuthenticationError } from '.';
-import { image, userData } from '../store/reducers/application';
+import { image, userData, Keyword } from '../store/reducers/application';
 import { store } from '../store';
 import { LoremIpsum } from 'lorem-ipsum';
 import Cookies from 'js-cookie';
@@ -52,6 +52,13 @@ const li = new LoremIpsum({
         min: 4
     }
 });
+
+interface GetImagesResponse extends APIResponse {
+    images: image[]
+}
+interface ExtractKeywordsResponse extends APIResponse {
+    keywords: Keyword[]
+}
 
 let refreshTokenInterval: NodeJS.Timeout;
 
@@ -123,8 +130,31 @@ export default class User {
         return this.refreshPromise;
     }
     @APIRequest()
-    public static async scanOCR(imageId: number): Promise<APIResponse> {
-        const resp  = (await axios.get(BASE_API_URL + "/ocr/" + imageId, {
+    public static async clearOCR(imageId: number): Promise<APIResponse> {
+        const resp  = (await axios(BASE_API_URL + "/ocr/clear/" + imageId, {
+            method: "POST",
+            headers: this.JWTAccessHeader(),
+            withCredentials: true
+        }));
+        const { message, error, error_info } = resp.data;
+        return {
+            resp,
+            message,
+            error,
+            error_info
+        };
+    }
+    @APIRequest()
+    public static async scanOCR(imageId: number, rescan: boolean=false): Promise<APIResponse> {
+        // const resp  = (await axios.post(BASE_API_URL + "/ocr/" + imageId, {
+        //     headers: this.JWTAccessHeader(),
+        //     withCredentials: true
+        // }));
+        // Strange bug with Axios causes it not to send cookies when making POST requests
+        // despite having `withCredentials: true`/"credentials: include" set, but it
+        // doesn't happen when manually setting the method in the config.
+        const resp  = (await axios(BASE_API_URL + "/ocr/" + imageId + "?" + qs.stringify({ rescan }), {
+            method: "POST",
             headers: this.JWTAccessHeader(),
             withCredentials: true
         }));
@@ -138,6 +168,21 @@ export default class User {
             OCRBoxes
         };
         
+    }
+    @APIRequest()
+    public static async extractKeywords(imageId: number, fuzzyScoreCutoff: number=1.0): Promise<ExtractKeywordsResponse> {
+        const resp = (await axios.get(BASE_API_URL + "/extract_keywords/" + imageId + "?" + qs.stringify({ "fuzzy_comparison_cutoff": fuzzyScoreCutoff }), {
+            headers: this.JWTAccessHeader(),
+            withCredentials: true
+        }));
+        const { message, error, error_info, keywords } = resp.data;
+        return {
+            resp,
+            message,
+            error,
+            error_info,
+            keywords
+        }
     }
     @APIRequest()
     public static async getUserData(): Promise<APIResponse> {
@@ -182,11 +227,9 @@ export default class User {
         }
         // return data === null ? data : this.loadImage(data!);
     }
+    
     @APIRequest()
-    public static async getImages(): Promise<APIResponse> {
-        interface GetImagesResponse extends APIResponse {
-            images: image[]
-        }
+    public static async getImages(): Promise<GetImagesResponse> {
         const resp = (await axios.get(BASE_API_URL + "/images", {
             headers: this.JWTAccessHeader(),
             withCredentials: true
@@ -196,7 +239,8 @@ export default class User {
             resp,
             message,
             error,
-            error_info
+            error_info,
+            images: []
         };
         else return {
             resp,
@@ -220,10 +264,10 @@ export default class User {
         };
     }
     @APIRequest()
-    public static async changeTag(command: string, imageId: number, name: string): Promise<APIResponse> {
+    public static async modifyImage(command: string, imageId: number, payload: object): Promise<APIResponse> {
         const resp = (await axios.post(BASE_API_URL + "/image/" + imageId + "/modify", {
             type: command,
-            tag: name
+            ...payload
         }, {
             headers: this.JWTAccessHeader(),
             withCredentials: true
@@ -233,11 +277,20 @@ export default class User {
             ...resp.data
         };
     }
+    public static async addTags(imageId: number, tags: string[]): Promise<APIResponse> {
+        return User.modifyImage("addTags", imageId, {
+            tags
+        })
+    }
     public static async addTag(imageId: number, name: string): Promise<APIResponse> {
-        return User.changeTag("addTag", imageId, name);
+        return User.modifyImage("addTag", imageId, {
+            tag: name
+        });
     }
     public static async removeTag(imageId: number, name: string): Promise<APIResponse> {
-        return User.changeTag("removeTag", imageId, name);
+        return User.modifyImage("removeTag", imageId, {
+            tag: name
+        });
     }
     @APIRequest()
     public static async loadImageAsBlob(url: string, loadingCallback?: Function): Promise<APIResponse> {

@@ -1,5 +1,20 @@
 import { SET_APPLICATION_STATE, ADD_IMAGES, REMOVE_IMAGE, UPDATE_IMAGE, FETCHED_ALL_IMAGES, ADD_GLOBAL_ERROR } from '../actionTypes';
 
+export interface OCRBoxes {
+    block_num: number[],
+    conf: string[],
+    height: number[],
+    left: number[],
+    level: number[],
+    line_num: number[],
+    page_num: number[],
+    par_num: number[],
+    text: string[],
+    top: number[],
+    width: number[],
+    word_num: number[]
+}
+
 export interface image {
     id: number,
     uid: string,
@@ -8,7 +23,7 @@ export interface image {
     width: number,
     height: number,
     ocr_text: string,
-    ocr_boxes: string,
+    ocr_boxes: OCRBoxes,
     filename: string,
     file_size: number,
     timestamp: number,

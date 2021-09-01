@@ -4,12 +4,14 @@ import { connect } from 'react-redux';
 import { logout, addImage, updateImage, addGlobalAPIError } from '../../store/actions';
 import { Redirect, RouteComponentProps, withRouter } from 'react-router-dom';
 import classNames from 'classnames';
-import { sleep } from '../../utils';
+import { sleep, ImageCache } from '../../utils';
 import User from '../../api/user';
 import Loading from '../../component/Loading';
 import { image, userData, Keyword } from '../../store/reducers/application';
 import './ImageView.css';
+import ReactTooltip from 'react-tooltip';
 import OutsideClickHandler from 'react-outside-click-handler';
+import { throttle } from 'throttle-debounce';
 import { AuthenticationError, APIResponse } from '../../api';
 import { Accordion, Card, Button, Collapse, ListGroup, ButtonGroup } from 'react-bootstrap';
 import Avatar from 'react-avatar';
@@ -28,13 +30,21 @@ interface S {
     redirect: boolean,
     // imgSrcLoading: boolean,
     preloadImage: HTMLImageElement | null,
+    imgEleLoaded: boolean,
     detailsOpen: boolean,
     scanningOCR: boolean,
     url?: string,
     keywords: Keyword[]|null,
     activeKeywords: string[],
     loadingKeywords: boolean,
-    addingSelectedKeywords: boolean
+    addingSelectedKeywords: boolean,
+    highlightedText: number[],
+    highlighting: boolean,
+    // Actual value isn't used, just used to force a rerender
+    // of boxes when rendered image dimensions change due to
+    // resizing.
+    _imgWidth: number|null,
+    _imgHeight: number|null
 }
 
 const KEYWORDS_MAX_DISPLAY: number = 5;
@@ -50,6 +60,9 @@ export default connect(
     { logout, addImage, updateImage, addGlobalAPIError }
 )(withRouter(class extends Component<P, S> {
     private cancelled: boolean = false;
+    private _componentRef: React.RefObject<HTMLDivElement>
+    private _imageRef: React.RefObject<HTMLImageElement>;
+    private _resizeObserver?: ResizeObserver;
     constructor(props: P) {
         super(props);
 
@@ -58,16 +71,24 @@ export default connect(
             // imgSrcLoading: false,
             // Not actually used for anything other than variable persistence while loading.
             preloadImage: null,
+            imgEleLoaded: false,
             detailsOpen: false,
             scanningOCR: false,
             url: undefined,
             keywords: null,
             activeKeywords: [],
             loadingKeywords: false,
-            addingSelectedKeywords: false
+            addingSelectedKeywords: false,
+            highlightedText: [],
+            highlighting: false,
+            _imgWidth: null,
+            _imgHeight: null
         };
 
         this.loadImage = this.loadImage.bind(this);
+
+        this._componentRef = React.createRef();
+        this._imageRef = React.createRef();
     }
     imageIdFromProps(props: P): number {
         return parseInt((props.match.params as any).id);
@@ -90,46 +111,49 @@ export default connect(
         }
         this.setState({ activeKeywords });
     }
+    updateTitle() {
+        const image = this.getImage();
+        if (image) document.title = image.title;
+    }
     async preloadImage(image: image): Promise<void> {
-        // It's important to refresh here since accessing /raw_image/xxx/ requires credentials
-        // via cookies. Since it's not making an API request, refreshing isn't handled automatically.
+        // This method's purpose is to preload and cache the image data,
+        // but it's also the most convenient place to update the page title
+        // for the view.
         
+        const cacheRes = ImageCache.get(image.url, HTMLImageElement)
+        if (cacheRes !== null && cacheRes instanceof HTMLImageElement) {
+            this.setState({ preloadImage: cacheRes });
+        } else {
+            const img = new Image();
+            img.src = image.url;
+            img.onload = () => this.setState({ preloadImage: img });
+            ImageCache.cache(image.url, img);
+        }
         /*
-        await User.refresh();
-        const img = new Image();
-        img.src = image.url;
-
-        // Make sure the image isn't deleted in garbage collection while preloading.
-        this.setState({ preloadImage : img });
-        img.onload = () => this.setState({ imgSrcLoading : false });
-
-        */
-
-        // No need to utilize streamed loading here, since the page stays in the "loading" state
-        // until the image has fully loaded regardless.
         const image_data: Blob = (await User.loadImageAsBlob(image.url)).data;
         const url = URL.createObjectURL(image_data);
         this.setState({ url });
+        */
     }
-    loadImage() {
+    async loadImage() {
         // this.setState({ imgSrcLoading : true });
+        this.setState({ imgEleLoaded: false, scanningOCR: false, highlightedText: [], highlighting: false, loadingKeywords: false, keywords: null, activeKeywords: [] });
         if (this.getImage() === undefined) {
-            User.getImage(this.imageId()).then(({message, error, image}: APIResponse) => {
-                if (!this.cancelled) {
-                    if (error) {
-                        console.log(message);
-                        this.setState({ redirect : true });
-                    }
-                    else {
-                        this.props.addImage(image);
-                        this.preloadImage(image);
-                    }
+            const { message, error, image } = await User.getImage(this.imageId());
+            if (!this.cancelled) {
+                if (error) {
+                    console.log(message);
+                    this.setState({ redirect : true });
                 }
-            }).catch((error: AuthenticationError) => {
-                console.log(error);
-                this.props.logout();
-            });
+                else {
+                    this.props.addImage(image);
+                    this.preloadImage(image);
+                }
+            }
         } else {
+            // Don't await image preloading, since it's not actually
+            // part of loading the image itself, it's just a preparation
+            // made alongside the loading. 
             this.preloadImage(this.getImage()!);
         }
     }
@@ -166,12 +190,12 @@ export default connect(
         this.setState({ loadingKeywords: false });
     }
     async clearOCR() {
-        this.setState({ scanningOCR : false, loadingKeywords: false, keywords: null, activeKeywords: [] });
+        this.setState({ scanningOCR : false, highlightedText: [], highlighting: false, loadingKeywords: false, keywords: null, activeKeywords: [] });
         const image = this.getImage()!;
         await User.clearOCR(image.id);
     }
     async scanOCR(rescan: boolean=false) {
-        this.setState({ scanningOCR : true, loadingKeywords: false, keywords: null, activeKeywords: [] });
+        this.setState({ scanningOCR : true, highlightedText: [], highlighting: false, loadingKeywords: false, keywords: null, activeKeywords: [] });
         const image = this.getImage()!;
         try {
             const response = await User.scanOCR(image.id, rescan);
@@ -230,15 +254,29 @@ export default connect(
         });
     }
     componentDidMount() {
-        this.loadImage();
+        this.loadImage().then(() => this.updateTitle());
+
+        this._resizeObserver = new ResizeObserver((entries) => {
+            if (this._imageRef.current) {
+                this.setState({ _imgWidth: this._imageRef.current.width, _imgHeight: this._imageRef.current.height });
+            }
+        });
+        if (this._componentRef.current) {
+            this._resizeObserver.observe(this._componentRef.current);
+        }
     }
-    componentDidUpdate(prevProps: P) {
-        if (this.imageIdFromProps(prevProps) !== this.imageId()) this.loadImage();
+    async componentDidUpdate(prevProps: P) {
+        if (this.imageIdFromProps(prevProps) !== this.imageId()) {
+            await this.loadImage();
+        }
+        this.updateTitle();
     }
     componentWillUnmount() {
         this.cancelled = true;
         
-        this.state.url && URL.revokeObjectURL(this.state.url);
+        this._resizeObserver!.disconnect();
+        this._resizeObserver = undefined;
+        // this.state.url && URL.revokeObjectURL(this.state.url);
     }
     render() {
         // let loading = this.props.images === null;
@@ -252,9 +290,9 @@ export default connect(
         if (this.state.redirect || !this.props.loggedIn) return redirect;
         let image = this.getImage();
         return (
-            <div className="ImageView">
+            <div className="ImageView" ref={this._componentRef}>
                 {
-                    (image === undefined || this.props.userData === null || !this.state.url) ? (
+                    (image === undefined || this.props.userData === null || !this.state.preloadImage) ? (
                         <Loading loading={true}/>
                     ) : (() => {
                         image = image!;
@@ -272,21 +310,51 @@ export default connect(
                                         );
                                     })()}
                                     {/* <div className="image-view-img-container mx-auto"> */}
-                                        <img className="image-view-img mx-auto"
-                                             src={this.state.url}
-                                             style={{
-                                                cursor: "pointer",
-                                                display: !this.state.url ? "none" : undefined
-                                             }}
-                                             onClick={() => {
-                                                // this.props.history.push(`/raw_image/${image!.id}`);
-                                                window.location.href = image!.url;
-                                             }}
-                                        />
-                                    {/* this.state.imgSrcLoading && (
-                                        <Loading loading={true}/>
-                                    ) */}
-                                    {/* </div> */}
+                                    <div className="mx-auto d-flex justify-content-center" style={{position: "relative", maxHeight: "100%"}}>
+                                        <Loading loading={!this.state.imgEleLoaded}/>
+                                        <a href={image.url} target="_blank" className="mx-auto d-flex justify-content-center">
+                                            <img className="image-view-img"
+                                                src={image.url}
+                                                ref={this._imageRef}
+                                                style={{display: this.state.imgEleLoaded ? undefined : "none"}}
+                                                onLoad={() => this.setState({ imgEleLoaded : true })}
+                                            />
+                                        </a>
+                                        {
+                                            this._imageRef.current && this.state.highlightedText.map((i) => {
+                                                const img = this._imageRef.current;
+                                                const seg = i + 4;
+                                                const widthRatio = (img!.width / image!.width);
+                                                const heightRatio = (img!.height / image!.height);
+                                                const text = image!.ocr_boxes.text[seg];
+                                                const conf = image!.ocr_boxes.conf[seg];
+                                                const left = image!.ocr_boxes.left[seg] * widthRatio;
+                                                const top = image!.ocr_boxes.top[seg] * heightRatio;
+                                                const width = image!.ocr_boxes.width[seg] * widthRatio;
+                                                const height = image!.ocr_boxes.height[seg] * heightRatio;
+                                                const key = text + "-" + seg;
+                                                return (
+                                                    <React.Fragment key={key}>
+                                                    <div style={{
+                                                            position: "absolute",
+                                                            outline: "2px solid var(--danger)",
+                                                            top: top + "px",
+                                                            left: left + "px",
+                                                            width: width + "px",
+                                                            height: height + "px"
+                                                         }}
+                                                         className="ocr-highlighted-text-segment"
+                                                         data-tip
+                                                         data-for={key}>
+                                                    </div>
+                                                    <ReactTooltip id={key} place="top" effect="solid">
+                                                        Confidence: {Math.round(parseInt(conf))}%
+                                                    </ReactTooltip>
+                                                    </React.Fragment>
+                                                );
+                                            })
+                                        }
+                                    </div>
                                     {(() => {
                                         const prevImage: number|null = image.prev;
                                         return (
@@ -366,8 +434,9 @@ export default connect(
                                                             future so that the rendering is completely different on mobile devices.  */}
                                                         <Card.Header as="h6"
                                                                      className="d-flex align-items-center justify-content-between p-2 hidden">
-                                                            <span className="">OCR</span>
+                                                            <span className="ml-2">OCR</span>
                                                             <div>
+                                                                <ButtonGroup>
                                                                 <Button className=""
                                                                         variant={this.state.scanningOCR ? "outline-primary" : "primary"}
                                                                         disabled={this.state.scanningOCR}
@@ -375,11 +444,18 @@ export default connect(
                                                                         onClick={() => !this.state.scanningOCR && this.scanOCR(true)}>
                                                                     {this.state.scanningOCR ? "Loading" : "Rescan"}
                                                                 </Button>
-                                                                <Button className="ml-1"
+                                                                <Button className=""
                                                                         variant="outline-secondary"
                                                                         size="sm"
                                                                         onClick={() => this.clearOCR()}>
                                                                     Clear
+                                                                </Button>
+                                                                </ButtonGroup>
+                                                                <Button className="ml-2"
+                                                                        variant={this.state.highlighting ? "outline-danger" : "success"}
+                                                                        size="sm"
+                                                                        onClick={() => this.setState({ highlighting: !this.state.highlighting })}>
+                                                                    {this.state.highlighting ? "Stop" : "Highlight"}
                                                                 </Button>
                                                             </div>
                                                         </Card.Header>
@@ -388,7 +464,30 @@ export default connect(
                                                                 image.ocr_text === "" ? (
                                                                     <span>No text found.</span>
                                                                 ) : (
-                                                                    <pre className="mb-0">{image.ocr_text}</pre>
+                                                                    <pre className="mb-0 ocr-text-container" data-highlighting={this.state.highlighting}>
+                                                                        {/* Ignore first 4 elements (empty whitespace) */}
+                                                                        {image.ocr_boxes.text.slice(4).map((text, i) => (
+                                                                            text === "" ? <br key={i}/> : (
+                                                                            <React.Fragment key={i}>
+                                                                            <span className="ocr-highlightable-text-component"
+                                                                                  style={this.state.highlightedText.includes(i) ? {
+                                                                                      color: "white",
+                                                                                      backgroundColor: "var(--danger)",
+                                                                                      outline: "3px solid var(--danger)"
+                                                                                  } : undefined}
+                                                                                  onClick={() => {
+                                                                                      if (!this.state.highlighting) return;
+                                                                                      let { highlightedText } = this.state;
+                                                                                      if (highlightedText.includes(i)) highlightedText = highlightedText.filter((t) => t !== i);
+                                                                                      else highlightedText.push(i);
+                                                                                      this.setState({ highlightedText });
+                                                                                  }}>
+                                                                                {text}
+                                                                            </span><span> </span>
+                                                                            </React.Fragment>
+                                                                            )
+                                                                        ))}
+                                                                    </pre>
                                                                 )
                                                             }
                                                         </Card.Body>

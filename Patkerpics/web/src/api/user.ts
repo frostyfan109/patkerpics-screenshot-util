@@ -8,6 +8,7 @@ import { LoremIpsum } from 'lorem-ipsum';
 import Cookies from 'js-cookie';
 import JwtDecode from 'jwt-decode';
 import { addGlobalAPIError, addGlobalError } from '../store/actions';
+import { ImageCache } from '../utils';
 
 type updateImage = (image: image) => void;
 type addImage = (image: image) => void;
@@ -294,6 +295,12 @@ export default class User {
     }
     @APIRequest()
     public static async loadImageAsBlob(url: string, loadingCallback?: Function): Promise<APIResponse> {
+        const cacheRes = ImageCache.get(url, Blob);
+        if (cacheRes !== null && cacheRes instanceof Blob) return {
+            resp: null,
+            message: "Successfully retrieved blob image from cache.",
+            data: cacheRes
+        }
         try {
             // Axois does not support streamed requests
             const resp = await fetch(url, {
@@ -316,10 +323,12 @@ export default class User {
                 value_buffer.set(value, old_buffer.length);
                 loadingCallback && loadingCallback(new Blob([value_buffer.buffer]));
             }
+            const data = new Blob([value_buffer]);
+            ImageCache.cache(url, data);
             return {
                 resp,
                 message: "Successfully downloaded image.",
-                data: new Blob([value_buffer])
+                data
             };
 
         } catch (e) {
@@ -331,6 +340,7 @@ export default class User {
                 responseType: "blob",
                 headers: this.JWTAccessHeader()
             }));
+            ImageCache.cache(url, resp.data);
             return {
                 resp,
                 message: "Successfully downloaded image. Fellback to Axios.",
@@ -538,15 +548,17 @@ function APIRequest(refresh: boolean=true): Function {
             let response: APIResponse;
             try {
                 response = await method.apply(this, args);
-                const newAccessToken = response.resp!.headers["update-access-token"];
-                const newRefreshToken = response.resp!.headers["update-refresh-token"];
-                if (newAccessToken) {
-                    User.accessToken = newAccessToken;
-                    console.log("Updated access token automatically.");
-                }
-                if (newRefreshToken) {
-                    User.refreshToken = newRefreshToken;
-                    console.log("Updated refresh token automatically.");
+                if (response.resp) {
+                    const newAccessToken = response.resp.headers["update-access-token"];
+                    const newRefreshToken = response.resp.headers["update-refresh-token"];
+                    if (newAccessToken) {
+                        User.accessToken = newAccessToken;
+                        console.log("Updated access token automatically.");
+                    }
+                    if (newRefreshToken) {
+                        User.refreshToken = newRefreshToken;
+                        console.log("Updated refresh token automatically.");
+                    }
                 }
                 // Access tokens are automatically refreshed after each request, so as long as a valid
                 // refresh token is sent, the response will go through the next attempt.

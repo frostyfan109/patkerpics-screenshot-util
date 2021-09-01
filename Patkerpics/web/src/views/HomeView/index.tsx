@@ -49,6 +49,7 @@ class HomeView extends Component<Props, {}> {
     }
     componentDidMount() {
         this.props.loggedIn && this.fetchImages();
+        document.title = WEBSITE_NAME;
     }
     componentDidUpdate(prevProps: Props) {
         if (!prevProps.loggedIn && this.props.loggedIn) {

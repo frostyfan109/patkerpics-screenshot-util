@@ -82,3 +82,12 @@ body *.bg-none {
 .cursor-initial {
     cursor: initial !important;
 }
+.ocr-text-container[data-highlighting="true"] .ocr-highlightable-text-component:hover {
+    outline: 2px solid var(--danger);
+}
+.ocr-highlighted-text-segment {
+    transition: background-color .15s ease-in-out;
+}
+.ocr-highlighted-text-segment:hover {
+    background-color: rgba(220, 53, 69, .25);
+}

@@ -1,4 +1,5 @@
 import os
+import json
 from shutil import rmtree
 from sqlalchemy.ext.hybrid import hybrid_property
 from datetime import datetime, timezone
@@ -6,7 +7,7 @@ from db import db
 from secrets import token_urlsafe
 from mimetypes import guess_type
 from PIL import Image
-from pytesseract import image_to_string, image_to_boxes
+from pytesseract import image_to_string, image_to_data, Output
 from io import BytesIO
 
 class Model(db.Model):
@@ -121,7 +122,7 @@ class ImageModel(Model):
     def run_ocr_scan(self):
         image = Image.open(self.get_path())
         self.ocr_text = image_to_string(image).strip()
-        self.ocr_boxes = image_to_boxes(image)
+        self.ocr_boxes = json.dumps(image_to_data(image, output_type=Output.DICT))
 
         print("OCR text:", self.ocr_text)
         print("OCR boxes:", self.ocr_boxes)
@@ -200,7 +201,7 @@ class ImageModel(Model):
                 "filename": self.filename,
                 "file_size": self.file_size,
                 "ocr_text": self.ocr_text,
-                "ocr_boxes": self.ocr_boxes,
+                "ocr_boxes": self.ocr_boxes if self.ocr_boxes == None else json.loads(self.ocr_boxes),
                 "next": next,
                 "prev": prev
             }

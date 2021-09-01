@@ -11,6 +11,7 @@ import { withRouter } from 'react-router-dom';
 import { RouteComponentProps } from 'react-router';
 import Infinite from 'react-infinite';
 import User from '../../api/user';
+import { APIResponse } from '../../api';
 
 interface ThumbnailProps extends RouteComponentProps {
     image: ImageType
@@ -73,13 +74,18 @@ const Thumbnail = withRouter(class extends Component<ThumbnailProps, { url: stri
         let url: string;
         let count = 0;
         // console.log("Started load");
-        User.loadImageAsBlob(this.props.image.url, (chunk: Blob) => {
+        const loadChunk = (chunk: Blob) => {
             if (url) URL.revokeObjectURL(url);
             // console.log("Loaded chunk", ++count);
             url = URL.createObjectURL(chunk);
             this.setState({ url });
-        }).then(() => {
+        };
+        // This function can return images from a cache, so chunk loading isn't
+        // guarenteed to happen. This means it's important to also load the return
+        // value as it might skip the callback altogether.
+        User.loadImageAsBlob(this.props.image.url, loadChunk).then((resp: APIResponse) => {
             // console.log("Finished load");
+            loadChunk(resp.data);
         });
     }
     componentWillUnmount() {

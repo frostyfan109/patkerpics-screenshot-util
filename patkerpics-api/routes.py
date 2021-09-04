@@ -19,6 +19,7 @@ from itertools import chain
 from fuzzywuzzy import fuzz
 import json
 import logging
+import base64
 import time
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -64,6 +65,24 @@ def image_not_found(image, use_uid=False):
         }
     }
 
+@api.route("/profile/picture")
+class ProfilePicture(Resource):
+    @jwt_required
+    def put(self):
+        image = request.files['image']
+        current_user = UserModel.query.filter_by(username=get_jwt_identity()).first()
+        current_user.save_profile_picture(image)
+        return {
+            "message": "Successfully set profile picture."
+        }
+        # Sending an entire image has too much latency, so it's better to just
+        # leave it to the client to manually set it.
+
+        # socket_id = clients.get(current_user.id)
+        # if socket_id is not None:
+        #     socket.emit("updateUserData", {
+        #         "profile_picture": current_user.serialize()["profile_picture"]
+        #     }, room=socket_id)
 
 @api.route("/image/<string:title>")
 class ImagePost(Resource):
@@ -85,6 +104,9 @@ class ImagePost(Resource):
                 prev_image = ImageModel.query.filter_by(image_id=serialized["prev"]).first()
                 if prev_image != None:
                     socket.emit("updateImage", prev_image.serialize(), room=socket_id)
+                    socket.emit("updateUserData", {
+                        "bytes_used": current_user.serialize()["bytes_used"]
+                    }, room=socket_id)
             return {
                 "message": "Image uploaded"
             }
@@ -378,6 +400,9 @@ class Image(Resource):
                 next_image = ImageModel.query.filter_by(image_id=serialized["next"]).first()
                 if next_image != None:
                     socket.emit("updateImage", next_image.serialize(), room=socket_id)
+                socket.emit("updateUserData", {
+                    "bytes_used": current_user.serialize()["bytes_used"]
+                }, room=socket_id)
             return {
                 "message": "Image deleted"
             }

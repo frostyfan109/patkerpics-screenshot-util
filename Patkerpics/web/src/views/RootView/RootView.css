@@ -43,3 +43,36 @@
 .user-avatar-container:hover > .add-icon {
     opacity: 1;
 }
+.change-avatar-modal {
+    display: flex !important;
+    justify-content: center;
+    align-items: center;
+    height: 70%;
+}
+.change-avatar-modal > .modal-dialog {
+    max-width: 70%;
+    min-width: 70%;
+    height: 70%;
+    margin: 0;
+}
+.change-avatar-modal > .modal-dialog > .modal-content {
+    height: 100%;
+}
+.change-avatar-modal .modal-body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.avatar-crop {
+    height:100%;
+    /* display: inline-flex; */
+}
+.avatar-crop > div:first-child {
+    height: 100%;
+    /* display: inline-flex; */
+    /* justify-content: center; */
+}
+.avatar-crop img {
+    height: 100%;
+    object-fit: contain;
+}

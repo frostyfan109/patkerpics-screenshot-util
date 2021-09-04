@@ -135,7 +135,7 @@ socket = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
 app.config['JWT_TOKEN_LOCATION'] = ['headers', 'cookies']
 app.config['JWT_SECRET_KEY'] = JWT_SECRET_KEY
-app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(seconds=5)
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(seconds=15)
 app.config['JWT_REFRESH_TOKEN_EXPIRES'] = timedelta(weeks=4)
 
 jwt = JWTManager(app)

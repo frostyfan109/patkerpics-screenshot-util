@@ -29,7 +29,7 @@
     padding: 0.25rem;
     padding-bottom: 0;
     transition: filter .25s;
-    position: initial;
+    position: relative;
 }
 .image-grid .card-body {
     padding: 0.5rem;
@@ -51,6 +51,9 @@
     border-top-right-radius: 2.5px;
     flex-grow: 1;
     background-size: cover;
+}
+.image-grid .card:hover {
+    z-index: 999;
 }
 .image-grid .card:hover .kebab-container {
     opacity: 1;

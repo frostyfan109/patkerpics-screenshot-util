@@ -16,6 +16,9 @@ export const getApplicationLoading = createSelector(
 
 const getImageState = (state: any): image[] => state.application.images;
 
+// This selector isn't actually viable, because the client doesn't necessarily
+// have every image the user has uploaded loaded into memory, so it can't deduce
+// total storage used.
 export const getBytesUsed = createSelector(
     [getImageState],
     (images: image[]): number => {

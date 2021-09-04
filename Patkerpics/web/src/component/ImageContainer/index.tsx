@@ -47,7 +47,7 @@ class Hook extends Component<HookProps, {dropdownOpen: boolean}> {
                 }}>
                     <FaEllipsisV className="kebab"/>
                 </DropdownToggle>
-                <DropdownMenu>
+                <DropdownMenu className="kebab-dropdown-menu">
                     <DropdownItem onClick={(e: React.MouseEvent) => {
                         e.stopPropagation();
                         User.deleteImage(this.props.imageId);

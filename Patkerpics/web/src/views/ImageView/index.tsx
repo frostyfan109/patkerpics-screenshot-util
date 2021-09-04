@@ -369,7 +369,7 @@ export default connect(
                             <div className="image-info-container bg-light" style={{"padding": "1.75rem 0"}}>
                                 <div className="image-info" style={{fontSize: "18px"}}>
                                     <div className="d-flex align-items-center mb-3">
-                                        <Avatar name={this.props.userData && this.props.userData.username} className="mr-2" size="36" textSizeRatio={2} round style={{userSelect: "none"}}/>
+                                        <Avatar name={this.props.userData && this.props.userData.username} src={this.props.userData.profile_picture || undefined} className="mr-2" size="36" textSizeRatio={2} round style={{userSelect: "none"}}/>
                                         <span style={{fontSize: "1em", fontWeight: 600}}>{this.props.userData && this.props.userData.username}</span>
                                     </div>
                                     

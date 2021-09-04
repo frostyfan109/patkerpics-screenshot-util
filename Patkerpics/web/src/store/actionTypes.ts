@@ -1,4 +1,4 @@
-import { applicationInterface, image } from "./reducers/application";
+import { applicationInterface, image, userData } from "./reducers/application";
 
 export const SET_LOGGED_IN = "SET_LOGGED_IN";
 export const SET_LOGGING_IN = "SET_LOGGING_IN";
@@ -8,6 +8,7 @@ export const REMOVE_IMAGE = "REMOVE_IMAGE";
 export const UPDATE_IMAGE = "UPDATE_IMAGE";
 export const FETCHED_ALL_IMAGES = "FETCHED_ALL_IMAGES";
 export const ADD_GLOBAL_ERROR = "ADD_GLOBAL_ERROR";
+export const UPDATE_USER_DATA = "UPDATE_USER_DATA";
 
 export interface fetchedAllImagesAction {
     type: typeof FETCHED_ALL_IMAGES
@@ -28,6 +29,10 @@ export interface setLoggedInAction {
     type: typeof SET_LOGGED_IN,
     loggedIn: boolean
 };
+export interface updateUserDataAction {
+    type: typeof UPDATE_USER_DATA,
+    userData: userData
+}
 export interface setLoggingInAction {
     type: typeof SET_LOGGING_IN
 };

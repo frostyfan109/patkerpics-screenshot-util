@@ -1,4 +1,4 @@
-import { SET_APPLICATION_STATE, ADD_IMAGES, REMOVE_IMAGE, UPDATE_IMAGE, FETCHED_ALL_IMAGES, ADD_GLOBAL_ERROR } from '../actionTypes';
+import { SET_APPLICATION_STATE, ADD_IMAGES, REMOVE_IMAGE, UPDATE_IMAGE, FETCHED_ALL_IMAGES, ADD_GLOBAL_ERROR, UPDATE_USER_DATA } from '../actionTypes';
 
 export interface OCRBoxes {
     block_num: number[],
@@ -37,7 +37,8 @@ export interface userData {
     username: string,
     email: string,
     created: number,
-    bytes_used: number
+    bytes_used: number,
+    profile_picture: string | null
 };
 
 export interface Keyword {
@@ -122,6 +123,16 @@ export default function applicationReducer(state: applicationInterface = initial
                     }
                     return image;
                 })
+            };
+        }
+        case UPDATE_USER_DATA: {
+            const { type, userData } = action;
+            return {
+                ...state,
+                userData: {
+                    ...state.userData,
+                    ...userData
+                }
             };
         }
         case FETCHED_ALL_IMAGES: {

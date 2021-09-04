@@ -1,7 +1,7 @@
 Flask_SQLAlchemy==2.4.1
 flask_restplus==0.13.0
 passlib==1.7.1
-SQLAlchemy==2.4.1
+SQLAlchemy
 Flask==1.1.1
 flask_cors==3.0.8
 flask_jwt_extended==3.25.0

@@ -3,18 +3,21 @@ import { connect } from 'react-redux';
 import { Navbar, Nav, Form, Button, Modal, Alert, FormControl, ProgressBar } from 'react-bootstrap';
 import { Dropdown, DropdownToggle, DropdownMenu } from 'reactstrap';
 import { LinkContainer } from 'react-router-bootstrap';
-import { FaCameraRetro, FaPlus, FaCamera } from 'react-icons/fa';
+import { FaCameraRetro, FaPlus, FaCamera, FaCircle, FaImages } from 'react-icons/fa';
 import { IoIosAdd } from 'react-icons/io';
 import Avatar from 'react-avatar';
+import Dropzone from 'react-dropzone';
+import ReactCrop from 'react-image-crop';
 import prettyBytes from 'pretty-bytes';
-import { login, logout, register } from '../../../store/actions';
+import { login, logout, register, updateUserData, addGlobalAPIError } from '../../../store/actions';
 import { loginInterface as loginStateInterface } from '../../../store/reducers/login';
 import { userData } from '../../../store/reducers/application';
-import { getBytesUsed } from '../../../store/selectors';
+// import { getBytesUsed } from '../../../store/selectors';
 import { WEBSITE_NAME } from '../../../config';
 import Cookies from 'js-cookie';
 import User from '../../../api/user';
 import { APIResponse } from '../../../api';
+import 'react-image-crop/dist/ReactCrop.css';
 
 interface HeaderProps {
     logout: Function
@@ -80,25 +83,34 @@ const Header = connect(
 });
 interface ADP {
     data: userData
-    bytesUsed: number
-    logout: Function
+    logout: Function,
+    updateUserData: Function,
+    addGlobalAPIError: Function
 };
 interface ADS {
     dropdownOpen: boolean,
-    avatarModal: boolean
+    avatarModal: boolean,
+    avatarUploadImage: string|null,
+    avatarUploadImageData: any,
+    avatarUploading: boolean,
+    crop: any
 }
 const AvatarDropdown = connect(
     (state: any) => ({
-        bytesUsed: getBytesUsed(state)
     }),
-    { logout }
+    { logout, updateUserData, addGlobalAPIError }
 )(class AvatarDropdown extends Component<ADP, ADS> {
+    private _imgRef?: HTMLImageElement;
     constructor(props: ADP) {
         super(props);
         
         this.state = {
             dropdownOpen: false,
-            avatarModal: false
+            avatarModal: false,
+            avatarUploadImage: null,
+            avatarUploadImageData: null,
+            avatarUploading: false,
+            crop: null
         };
 
         this.toggleDropdown = this.toggleDropdown.bind(this);
@@ -106,19 +118,118 @@ const AvatarDropdown = connect(
     private toggleDropdown() {
         this.setState({ dropdownOpen : !this.state.dropdownOpen });
     }
+    private async savePhoto() {
+        const { crop } = this.state;
+        const image = this.state.avatarUploadImage!;
+        let imageData: Blob;
+        if (crop !== null && crop.width > 0 && crop.height > 0) {
+            const img = this._imgRef!;
+            const scaleX = img.naturalWidth / img.width;
+            const scaleY = img.naturalHeight / img.height;
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d")!;
+            const pixelRatio = window.devicePixelRatio;
+
+            canvas.width = crop.width * pixelRatio * scaleX;
+            canvas.height = crop.height * pixelRatio * scaleY;
+
+            ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+            ctx.imageSmoothingQuality = 'high';
+
+            ctx.drawImage(
+                img,
+                crop.x * scaleX,
+                crop.y * scaleY,
+                crop.width * scaleX,
+                crop.height * scaleY,
+                0,
+                0,
+                crop.width * scaleX,
+                crop.height * scaleY
+            );
+            imageData = await new Promise((resolve) => {
+                canvas.toBlob((blob) => resolve(blob!), "image/png");
+            });
+        } else {
+            imageData = this.state.avatarUploadImageData;
+        }
+        const resp = await User.setProfilePicture(imageData);
+        if (resp.error) {
+            console.error(resp.error);
+            this.props.addGlobalAPIError(resp);
+        }
+        this.setState({ avatarUploadImage: null, avatarUploadImageData: null, avatarModal: false, crop: null });
+
+        try{
+            const dataURI = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result as string);
+                reader.onerror = () => reject(reader.error);
+                reader.onabort = () => reject(new Error("Profile picture FileReader aborted."));
+                reader.readAsDataURL(imageData);
+            });
+            this.props.updateUserData({
+                "profile_picture": dataURI
+            });
+        } catch (e) {
+            console.error(e);
+        }
+    }
+    private async uploadFile(_file: File[]) {
+        this.setState({ avatarUploading : true });
+        const file = _file[0];
+        const data = await file.arrayBuffer();
+        const blob = new Blob([data]);
+        const url = URL.createObjectURL(blob);
+
+        // const image = new Image();
+        // image.src = url;
+        // await new Promise((resolve) => {
+        //     image.onload = resolve;
+        //     image.onerror = resolve;
+        // });
+        // const width = image.width;
+        // const height = image.height;
+        this.setState({ avatarUploadImage: url, avatarUploadImageData: blob, avatarUploading : false });
+    }
+    private imageCropperLoaded(image: HTMLImageElement) {
+        this._imgRef = image;
+        const parent = image.parentElement!;
+        let { width, height } = image.getBoundingClientRect();
+        width = Math.abs(width);
+        height = Math.abs(height);
+        // ReactCrop is broken and overrides `crop` after calling onImageLoaded
+        // for some reason so you can't set `crop` state inside of it.
+        const cropWidth = width / 2;
+        const cropHeight = width / 2;
+        const cropX = (width / 2) - (cropWidth / 2) + ((parent.offsetWidth - image.width) / 2);
+        const cropY = (height / 2) - (cropHeight / 2) + ((parent.offsetHeight - image.height) / 2);
+        this.setState({}, () => {
+            this.setState({ crop: {
+                width: cropWidth,
+                height: cropHeight,
+                x: cropX,
+                y: cropY,
+                unit: "px",
+                aspect: 1
+            }});
+        });
+    }
     render() {
         return (
+            <>
             <Dropdown isOpen={this.state.dropdownOpen}
                       toggle={this.toggleDropdown}
                       className="avatar-dropdown-container">
                 <DropdownToggle id="avatarDropdown" tag="div" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                    <Avatar name={this.props.data.username} size="40" textSizeRatio={2} round style={{userSelect: "none"}}/>
+                    <Avatar src={this.props.data.profile_picture || undefined} name={this.props.data.username} size="40" textSizeRatio={2} round style={{userSelect: "none"}}/>
                 </DropdownToggle>
                 <DropdownMenu className="py-2 px-1" right>
                     <div className="d-flex align-items-center py-2 px-2">
                         <div className="user-avatar-container mr-3" onClick={() => this.setState({ avatarModal : true })} style={{cursor: "pointer"}}>
                             <Avatar name={this.props.data.username}
                                     className="user-avatar"
+                                    src={this.props.data.profile_picture || undefined}
                                     size="54"
                                     textSizeRatio={2}
                                     round
@@ -133,9 +244,9 @@ const AvatarDropdown = connect(
                             <h6 className="m-0">{this.props.data.username}</h6>
                             <div>{this.props.data.email}</div>
                             {/* 1E10 Bytes = 10 GB */}
-                            <ProgressBar className="mt-2" style={{height: "4px"}} min={0} max={1} now={this.props.bytesUsed/1E10}/>
+                            <ProgressBar className="mt-2" style={{height: "4px"}} min={0} max={1} now={this.props.data.bytes_used/1E10}/>
                             <div className="text-muted text-nowrap">
-                                {prettyBytes(this.props.bytesUsed).replace(" ", "")} of 10GB used
+                                {prettyBytes(this.props.data.bytes_used).replace(" ", "")} of 10GB used
                             </div>
                         </div>
                     </div>
@@ -144,6 +255,52 @@ const AvatarDropdown = connect(
                     </div>
                 </DropdownMenu>
             </Dropdown>
+            <Modal className="change-avatar-modal" show={this.state.avatarModal} onHide={() => this.setState({ avatarModal : false })}>
+                <Modal.Header closeButton>
+                    <Modal.Title>Select profile photo</Modal.Title>
+                </Modal.Header>
+                <Modal.Body style={{minHeight: 0, flex: 1}}>
+                    {
+                        this.state.avatarUploadImage !== null ? (
+                            <ReactCrop src={this.state.avatarUploadImage}
+                                       className="avatar-crop"
+                                       crop={this.state.crop}
+                                       circularCrop={true}
+                                       onImageLoaded={(image) => this.imageCropperLoaded(image)}
+                                       onChange={(crop) => this.setState({ crop })}/>
+                        ) : (this.state.avatarUploading ? (
+                            <span>Uploading</span>
+                        ) : (
+                            <Dropzone accept="image/*" multiple={false} onDrop={(file) => this.uploadFile(file)}>
+                                {({getRootProps, getInputProps}) => (
+                                    <section className="h-100 w-100">
+                                        <input {...getInputProps()}/>
+                                        <div className="h-100 d-flex justify-content-center align-items-center" {...getRootProps()}>
+                                            <div className="blank-state d-flex flex-column align-items-center text-muted">
+                                                <span style={{display: "grid", placeItems: "center"}}>
+                                                    {/* <FaCircle style={{fontSize: "48px", gridArea: "1 / 1"}} className="text-primary"/> */}
+                                                    <FaImages style={{fontSize: "64px", gridArea: "1 / 1"}}/>
+                                                </span>
+                                                <h4 className="my-3">Drag a profile photo here</h4>
+                                                <span className="caption">or</span>
+                                                <Button className="mt-3" variant="outline-secondary" size="sm">Select a photo from your computer</Button>
+                                            </div> 
+                                        </div>
+                                    </section>
+                                )}
+                            </Dropzone>
+                        ))
+                    }
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="primary" disabled={this.state.avatarUploadImage === null} onClick={() => this.savePhoto()} size="sm">Confirm</Button>
+                    {this.state.avatarUploadImage !== null && (
+                        <Button variant="outline-danger" size="sm" onClick={() => this.setState({ avatarUploadImage : null })}>Reselect</Button>
+                    )}
+                    <Button variant="outline-secondary" onClick={() => this.setState({ avatarModal : false })} size="sm">Cancel</Button>
+                </Modal.Footer>
+            </Modal>
+            </>
         );
     }
 })

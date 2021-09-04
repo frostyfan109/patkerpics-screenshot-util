@@ -5,7 +5,7 @@ import {
     SET_APPLICATION_STATE, setApplicationStateAction, addImagesAction,
     ADD_IMAGES, removeImageAction, REMOVE_IMAGE, updateImageAction,
     UPDATE_IMAGE, fetchedAllImagesAction, FETCHED_ALL_IMAGES,
-    ADD_GLOBAL_ERROR
+    ADD_GLOBAL_ERROR, updateUserDataAction, UPDATE_USER_DATA
 } from './actionTypes';
 import User, { Callbacks } from '../api/user';
 import Cookies from 'js-cookie';
@@ -98,6 +98,10 @@ function authenticateLogin(): ThunkAction<Promise<void>, any, any, any> {
                 console.log("update image");
                 dispatch(updateImage(updatedImage));
             },
+            (updatedUserData: userData):void => {
+                console.log("update user data");
+                dispatch(updateUserData(updatedUserData));
+            },
             // (images: image[]): void => {
             //     dispatch(setApplicationState({
             //         images: images
@@ -134,6 +138,13 @@ export function updateImage(image: image): updateImageAction {
     return {
         type: UPDATE_IMAGE,
         image
+    };
+}
+
+export function updateUserData(userData: userData): updateUserDataAction {
+    return {
+        type: UPDATE_USER_DATA,
+        userData
     };
 }
 

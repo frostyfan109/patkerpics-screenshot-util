@@ -13,6 +13,7 @@ import { ImageCache } from '../utils';
 type updateImage = (image: image) => void;
 type addImage = (image: image) => void;
 type removeImage = (image: image) => void;
+type updateUserData = (userData: userData) => void;
 // type setInitialImages = (images: image[]) => void;
 type authenticationFailed = () => void;
 
@@ -129,6 +130,33 @@ export default class User {
         });
         this.refreshPromise.then(() => {this.refreshing = false;});
         return this.refreshPromise;
+    }
+    @APIRequest()
+    public static async getProfilePicture(): Promise<APIResponse> {
+        const resp = (await axios.get(BASE_API_URL + "/profile/picture", {
+            headers: this.JWTAccessHeader(),
+            withCredentials: true
+        }));
+        resp.data.data = "data:image/png;base64," + resp.data.data;
+        return {
+            resp,
+            ...resp.data
+        };
+    }
+    @APIRequest()
+    public static async setProfilePicture(imageData: Blob): Promise<APIResponse> {
+        const data = new FormData();
+        data.append("image", new File([imageData], "profile.png"));
+        const resp  = (await axios(BASE_API_URL + "/profile/picture", {
+            method: "PUT",
+            headers: this.JWTAccessHeader(),
+            data,
+            withCredentials: true
+        }));
+        return {
+            resp,
+            ...resp.data
+        }
     }
     @APIRequest()
     public static async clearOCR(imageId: number): Promise<APIResponse> {
@@ -363,6 +391,7 @@ export default class User {
         addImage: addImage,
         removeImage: removeImage,
         updateImage: updateImage,
+        updateUserData: updateUserData,
         authenticationFailed: (error: AuthenticationError) => void
     ): void {
         let socket: SocketIOClient.Socket|undefined;
@@ -412,6 +441,9 @@ export default class User {
                 socket.on("updateImage", async (image: image) => {
                     console.log("Received update image event");
                     updateImage(image);
+                });
+                socket.on("updateUserData", async (userData: userData) => {
+                    updateUserData(userData);
                 });
             }).catch((error: AuthenticationError) => {
                 authenticationFailed(error);

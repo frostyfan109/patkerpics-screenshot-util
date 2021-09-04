@@ -1,5 +1,6 @@
 import os
 import json
+import base64
 from shutil import rmtree
 from sqlalchemy.ext.hybrid import hybrid_property
 from datetime import datetime, timezone
@@ -45,15 +46,37 @@ class UserModel(Model):
     def get_images(self):
         return ImageModel.query.filter_by(user_id=self.id).all()
 
+    def get_images_path(self):
+        return os.path.join("images", str(self.id))
+
+    def get_profile_path(self):
+        return os.path.join(self.get_images_path(), "profile_picture")
+
+    def get_profile_picture_path(self):
+        return os.path.join(self.get_profile_path(), "profile.png")
+
+    def has_profile_picture(self):
+        return os.path.isfile(self.get_profile_picture_path())
+
+    def get_profile_picture_b64(self):
+        if not self.has_profile_picture():
+            return None
+        with open(self.get_profile_picture_path(), "rb") as f:
+            return "data:image/png;base64," + base64.b64encode(f.read()).decode("ascii")
+
     def save(self):
         super().save()
 
-        os.mkdir(os.path.join("images", str(self.id)))
+        os.mkdir(self.get_images_path())
+        os.mkdir(self.get_profile_path())
 
     def delete(self):
-        rmtree(os.path.join("images", str(self.id)))
+        rmtree(self.get_images_path())
 
         super().delete()
+
+    def save_profile_picture(self, image):
+        image.save(self.get_profile_picture_path())
 
     def get_bytes_used(self):
         # This could be updated to be a databsae column which is updated by
@@ -68,7 +91,8 @@ class UserModel(Model):
             "username": self.username,
             "email": self.email,
             "created": self.created.timestamp(),
-            "bytes_used": self.get_bytes_used()
+            "bytes_used": self.get_bytes_used(),
+            "profile_picture": self.get_profile_picture_b64()
         }
 
 

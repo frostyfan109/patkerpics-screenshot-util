@@ -13,7 +13,7 @@ import ReactTooltip from 'react-tooltip';
 import OutsideClickHandler from 'react-outside-click-handler';
 import { throttle } from 'throttle-debounce';
 import { AuthenticationError, APIResponse } from '../../api';
-import { Accordion, Card, Button, Collapse, ListGroup, ButtonGroup } from 'react-bootstrap';
+import { Accordion, Card, Button, Collapse, ListGroup, ButtonGroup, Modal } from 'react-bootstrap';
 import Avatar from 'react-avatar';
 import { WEBSITE_NAME } from '../../config';
 const InlineEdit = require('react-edit-inline2').default;
@@ -45,10 +45,11 @@ interface S {
     // of boxes when rendered image dimensions change due to
     // resizing.
     _imgWidth: number|null,
-    _imgHeight: number|null
+    _imgHeight: number|null,
+    ocrModal: boolean
 }
 
-const KEYWORDS_MAX_DISPLAY: number = 5;
+const KEYWORDS_MAX_DISPLAY: number = 4;
 const KEYWORDS_MIN_SCORE: number = 3;
 const FUZZY_SCORE_CUTOFF: number = .8;
 
@@ -83,7 +84,8 @@ export default connect(
             highlightedText: [],
             highlighting: false,
             _imgWidth: null,
-            _imgHeight: null
+            _imgHeight: null,
+            ocrModal: false
         };
 
         this.loadImage = this.loadImage.bind(this);
@@ -268,6 +270,12 @@ export default connect(
             activeKeywords: [],
             addingSelectedKeywords: false
         });
+    }
+    openOCRModal() {
+        const image = this.getImage();
+        const isAuthor = image && this.props.userData && image.author.username === this.props.userData.username;
+        if (isAuthor && !image!.ocr_boxes) this.scanOCR();
+        this.setState({ ocrModal: true });
     }
     componentDidMount() {
         this.loadImage().then(() => this.updateTitle());
@@ -464,128 +472,11 @@ export default connect(
                                                 </div>
                                             </Collapse>
                                         </div>
-                                        <div className="mt-1">
-                                            {
-                                                image.ocr_text !== null ? (
-                                                    <Card className="d-none d-md-flex">
-                                                        {/* Note: OCR component is hidden on mobile devices due to the difficulty of rendering
-                                                            such a bulky module into a small horizontal space fluidly. Could be updated in the
-                                                            future so that the rendering is completely different on mobile devices.  */}
-                                                        <Card.Header as="h6"
-                                                                     className="d-flex align-items-center justify-content-between p-2 hidden">
-                                                            <span className="ml-2">OCR</span>
-                                                            <div>
-                                                                <ButtonGroup style={{display: isAuthor ? undefined : "none"}}>
-                                                                <Button className=""
-                                                                        variant={this.state.scanningOCR ? "outline-primary" : "primary"}
-                                                                        disabled={this.state.scanningOCR}
-                                                                        size="sm"
-                                                                        onClick={() => !this.state.scanningOCR && this.scanOCR(true)}>
-                                                                    {this.state.scanningOCR ? "Loading" : "Rescan"}
-                                                                </Button>
-                                                                <Button className=""
-                                                                        variant="outline-secondary"
-                                                                        size="sm"
-                                                                        onClick={() => this.clearOCR()}>
-                                                                    Clear
-                                                                </Button>
-                                                                </ButtonGroup>
-                                                                <Button className="ml-2"
-                                                                        variant={this.state.highlighting ? "outline-danger" : "success"}
-                                                                        size="sm"
-                                                                        onClick={() => this.setState({ highlighting: !this.state.highlighting })}>
-                                                                    {this.state.highlighting ? "Stop" : "Highlight"}
-                                                                </Button>
-                                                            </div>
-                                                        </Card.Header>
-                                                        <Card.Body className="p-3">
-                                                            {
-                                                                image.ocr_text === "" ? (
-                                                                    <span>No text found.</span>
-                                                                ) : (
-                                                                    <pre className="mb-0 ocr-text-container" data-highlighting={this.state.highlighting}>
-                                                                        {/* Ignore first 4 elements (empty whitespace) */}
-                                                                        {image.ocr_boxes.text.slice(4).map((text, i) => (
-                                                                            text === "" ? <br key={i}/> : (
-                                                                            <React.Fragment key={i}>
-                                                                            <span className="ocr-highlightable-text-component"
-                                                                                  style={this.state.highlightedText.includes(i) ? {
-                                                                                      color: "white",
-                                                                                      backgroundColor: "var(--danger)",
-                                                                                      outline: "3px solid var(--danger)"
-                                                                                  } : undefined}
-                                                                                  onClick={() => {
-                                                                                      if (!this.state.highlighting) return;
-                                                                                      let { highlightedText } = this.state;
-                                                                                      if (highlightedText.includes(i)) highlightedText = highlightedText.filter((t) => t !== i);
-                                                                                      else highlightedText.push(i);
-                                                                                      this.setState({ highlightedText });
-                                                                                  }}>
-                                                                                {text}
-                                                                            </span><span> </span>
-                                                                            </React.Fragment>
-                                                                            )
-                                                                        ))}
-                                                                    </pre>
-                                                                )
-                                                            }
-                                                        </Card.Body>
-                                                        {
-                                                            isAuthor && image.ocr_text !== "" && (
-                                                                <Card.Footer>
-                                                                    {
-                                                                        this.state.keywords !== null ? (
-                                                                            this.state.keywords.length === 0 ? (
-                                                                                <span>No new keywords found.</span>
-                                                                            ) : (
-                                                                                <div className="d-flex align-items-center justify-content-between">
-                                                                                    <ButtonGroup className="flex-wrap mr-2">
-                                                                                        {
-                                                                                            this.state.keywords.sort((a,b) => b.score - a.score)
-                                                                                                               .slice(0, KEYWORDS_MAX_DISPLAY)
-                                                                                                               .map((keyword) => {
-                                                                                                const variant = keyword.fuzzed ? "success" : "primary";
-                                                                                                return (
-                                                                                                    <Button key={keyword.name}
-                                                                                                        variant={(this.state.activeKeywords.includes(keyword.name) ? variant : "outline-" + variant) as any}
-                                                                                                        style={{whiteSpace: "nowrap"}}
-                                                                                                        onClick={() => this.toggleKeyword(keyword.name)}>
-                                                                                                        {keyword.name}
-                                                                                                    </Button>
-                                                                                                );
-                                                                                            })
-                                                                                        }
-                                                                                    </ButtonGroup>
-                                                                                    <div className="d-flex align-items-center text-nowrap flex-wrap justify-content-center">
-                                                                                        <Button variant="primary" disabled={this.state.addingSelectedKeywords} size="sm" onClick={() => this.addSelectedTags()}>Add</Button>
-                                                                                        <Button className="m-1" variant="outline-secondary" size="sm" onClick={() => this.setState({ keywords: null, activeKeywords: [], addingSelectedKeywords: false })}>
-                                                                                            Clear all
-                                                                                        </Button>
-                                                                                    </div>
-                                                                                </div>
-                                                                            )
-                                                                        ) : (
-                                                                            this.state.loadingKeywords ? (
-                                                                                <span className="text-muted loading">Loading keywords</span>
-                                                                            ) : (
-                                                                                <a href="javascript:void(0);" onClick={() => this.extractKeywords()}>Run keyword extraction</a>
-                                                                            )
-                                                                        )
-                                                                    }
-                                                                </Card.Footer>
-                                                            )
-                                                        }
-                                                        {/* <Card.Footer className="bg-light">
-                                                            
-                                                        </Card.Footer> */}
-                                                    </Card>
-                                                ) : (this.state.scanningOCR ? (
-                                                    <div className="text-muted loading">Scanning</div>
-                                                ) : (
-                                                    isAuthor && <a href="javascript:void(0);" onClick={() => this.scanOCR()}>Scan OCR</a>
-                                                ))
-                                            }
-                                        </div>
+                                        {(isAuthor || image.ocr_boxes !== null) && (<div className="mt-1">
+                                            <a href="javascript:void(0);" onClick={() => this.openOCRModal()}>
+                                                OCR
+                                            </a>
+                                        </div>)}
                                         {isAuthor && <div className="mt-3"><TagContainer image={image}/></div>}
                                     </div>
                                 </div>
@@ -595,6 +486,140 @@ export default connect(
                         );
                     })()
                 }
+                <Modal show={this.state.ocrModal} onHide={() => this.setState({ ocrModal : false })}>
+                    <Modal.Header closeButton>
+                        <Modal.Title>OCR</Modal.Title>
+                    </Modal.Header>
+                    {
+                    image && image.ocr_text !== null ? (
+                        <>
+                        {/* Note: OCR component is hidden on mobile devices due to the difficulty of rendering
+                            such a bulky module into a small horizontal space fluidly. Could be updated in the
+                            future so that the rendering is completely different on mobile devices.  */}
+                        <Modal.Body>
+                        {
+                            image.ocr_text === "" ? (
+                                <span>No text found.</span>
+                            ) : (
+                                <pre className="mb-0 ocr-text-container" data-highlighting={this.state.highlighting}>
+                                    {/* Ignore first 4 elements (empty whitespace) */}
+                                    {image.ocr_boxes.text.slice(4).map((text, i) => (
+                                        text === "" ? <br key={i}/> : (
+                                        <React.Fragment key={i}>
+                                        <span className="ocr-highlightable-text-component"
+                                                style={this.state.highlightedText.includes(i) ? {
+                                                    color: "white",
+                                                    backgroundColor: "var(--danger)",
+                                                    outline: "3px solid var(--danger)"
+                                                } : undefined}
+                                                onClick={() => {
+                                                    if (!this.state.highlighting) return;
+                                                    let { highlightedText } = this.state;
+                                                    if (highlightedText.includes(i)) highlightedText = highlightedText.filter((t) => t !== i);
+                                                    else highlightedText.push(i);
+                                                    this.setState({ highlightedText });
+                                                }}>
+                                            {text}
+                                        </span><span> </span>
+                                        </React.Fragment>
+                                        )
+                                    ))}
+                                </pre>
+                            )
+                        }
+                        </Modal.Body>
+                        {
+                            isAuthor && image.ocr_text !== "" && (
+                                <div className="p-2">
+                                    {
+                                        this.state.keywords !== null && (
+                                            this.state.keywords.length === 0 ? (
+                                                <span>No new keywords found.</span>
+                                            ) : (
+                                                <div className="d-flex align-items-center justify-content-between">
+                                                    <ButtonGroup className="flex-wrap mr-2">
+                                                        {
+                                                            this.state.keywords.sort((a,b) => b.score - a.score)
+                                                                                .slice(0, KEYWORDS_MAX_DISPLAY)
+                                                                                .map((keyword) => {
+                                                                const variant = keyword.fuzzed ? "success" : "primary";
+                                                                return (
+                                                                    <Button key={keyword.name}
+                                                                        variant={(this.state.activeKeywords.includes(keyword.name) ? variant : "outline-" + variant) as any}
+                                                                        style={{whiteSpace: "nowrap"}}
+                                                                        onClick={() => this.toggleKeyword(keyword.name)}>
+                                                                        {keyword.name}
+                                                                    </Button>
+                                                                );
+                                                            })
+                                                        }
+                                                    </ButtonGroup>
+                                                    <div className="d-flex align-items-center text-nowrap flex-wrap justify-content-center">
+                                                        <Button variant="primary" disabled={this.state.addingSelectedKeywords} size="sm" onClick={() => this.addSelectedTags()}>Add</Button>
+                                                        <Button className="m-1" variant="outline-secondary" size="sm" onClick={() => this.setState({ keywords: null, activeKeywords: [], addingSelectedKeywords: false })}>
+                                                            Clear all
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            )
+                                        )
+                                    }
+                                </div>
+                            )
+                        }
+                        {
+                            <Modal.Footer>
+                                {false && (
+                                <ButtonGroup style={{display: isAuthor ? undefined : "none"}}>
+                                    <Button className=""
+                                            variant={this.state.scanningOCR ? "outline-primary" : "primary"}
+                                            disabled={this.state.scanningOCR}
+                                            size="sm"
+                                            onClick={() => !this.state.scanningOCR && this.scanOCR(true)}>
+                                        {this.state.scanningOCR ? "Loading" : "Rescan"}
+                                    </Button>
+                                    <Button className=""
+                                            variant="outline-secondary"
+                                            size="sm"
+                                            onClick={() => this.clearOCR()}>
+                                        Clear
+                                    </Button>
+                                </ButtonGroup>
+                                )}
+                                <Button className="ml-1"
+                                        variant={this.state.highlighting ? "outline-danger" : "success"}
+                                        size="sm"
+                                        onClick={() => this.setState({ highlighting: !this.state.highlighting })}>
+                                    {this.state.highlighting ? "Stop" : "Highlight"}
+                                </Button>
+                                {isAuthor && image.ocr_text !== null && this.state.keywords === null && (
+                                    <Button className="ml-1"
+                                            variant="primary"
+                                            size="sm"
+                                            disabled={this.state.loadingKeywords}
+                                            onClick={() => this.extractKeywords()}>
+                                        {this.state.loadingKeywords ? "Loading" : "Extract keywords"}
+                                    </Button>
+                                )}
+                                <Button className="ml-1"
+                                        variant="outline-secondary"
+                                        size="sm"
+                                        onClick={() => this.setState({ ocrModal : false })}>
+                                    Close
+                                </Button>
+                            </Modal.Footer>
+                        }
+                        {/* <Card.Footer className="bg-light">
+                            
+                        </Card.Footer> */}
+                        </>
+                    ) : (this.state.scanningOCR ? (
+                        <Modal.Body className="p-5">
+                            <Loading loading={true}/>
+                        </Modal.Body>
+                    ) : null)
+                    }
+                </Modal>
             </div>
         );
     }

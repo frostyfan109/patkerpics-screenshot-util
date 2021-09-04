@@ -274,6 +274,7 @@ export default connect(
 
         this._resizeObserver = new ResizeObserver((entries) => {
             if (this._imageRef.current) {
+                console.log("resize");
                 this.setState({ _imgWidth: this._imageRef.current.width, _imgHeight: this._imageRef.current.height });
             }
         });
@@ -332,54 +333,56 @@ export default connect(
                                         );
                                     })()}
                                     {/* <div className="image-view-img-container mx-auto"> */}
-                                    <div className="mx-auto d-flex justify-content-center" style={{position: "relative", maxHeight: "100%"}}>
+                                    <div className="mx-auto d-flex justify-content-center" style={{maxHeight: "100%"}}>
                                         <Loading loading={!this.state.imgEleLoaded}/>
                                         <a href={image.url} target="_blank" className="mx-auto d-flex justify-content-center">
-                                            <img className="image-view-img"
+                                            <span style={{position: "relative"}}>
+                                                <img className="image-view-img"
                                                 src={image.url}
                                                 ref={this._imageRef}
                                                 style={{display: this.state.imgEleLoaded ? undefined : "none"}}
                                                 onLoad={() => this.setState({ imgEleLoaded : true })}
-                                            />
+                                                />
+                                                {
+                                                this._imageRef.current && this.state.highlightedText.map((i) => {
+                                                    // When the router props change, the component renders once with
+                                                    // a new image before componentDidUpdate and loadImage are called
+                                                    // and set highlightedText empty.
+                                                    if (!image!.ocr_boxes) return;
+                                                    const img = this._imageRef.current;
+                                                    const seg = i + 4;
+                                                    const widthRatio = (img!.width / image!.width);
+                                                    const heightRatio = (img!.height / image!.height);
+                                                    const text = image!.ocr_boxes.text[seg];
+                                                    const conf = image!.ocr_boxes.conf[seg];
+                                                    const left = image!.ocr_boxes.left[seg] * widthRatio;
+                                                    const top = image!.ocr_boxes.top[seg] * heightRatio;
+                                                    const width = image!.ocr_boxes.width[seg] * widthRatio;
+                                                    const height = image!.ocr_boxes.height[seg] * heightRatio;
+                                                    const key = text + "-" + seg;
+                                                    return (
+                                                        <React.Fragment key={key}>
+                                                        <div style={{
+                                                                position: "absolute",
+                                                                outline: "2px solid var(--danger)",
+                                                                top: top + "px",
+                                                                left: left + "px",
+                                                                width: width + "px",
+                                                                height: height + "px"
+                                                            }}
+                                                            className="ocr-highlighted-text-segment"
+                                                            data-tip
+                                                            data-for={key}>
+                                                        </div>
+                                                        <ReactTooltip id={key} place="top" effect="solid">
+                                                            Confidence: {Math.round(parseInt(conf))}%
+                                                        </ReactTooltip>
+                                                        </React.Fragment>
+                                                    );
+                                                })
+                                            }
+                                            </span>
                                         </a>
-                                        {
-                                            this._imageRef.current && this.state.highlightedText.map((i) => {
-                                                // When the router props change, the component renders once with
-                                                // a new image before componentDidUpdate and loadImage are called
-                                                // and set highlightedText empty.
-                                                if (!image!.ocr_boxes) return;
-                                                const img = this._imageRef.current;
-                                                const seg = i + 4;
-                                                const widthRatio = (img!.width / image!.width);
-                                                const heightRatio = (img!.height / image!.height);
-                                                const text = image!.ocr_boxes.text[seg];
-                                                const conf = image!.ocr_boxes.conf[seg];
-                                                const left = image!.ocr_boxes.left[seg] * widthRatio;
-                                                const top = image!.ocr_boxes.top[seg] * heightRatio;
-                                                const width = image!.ocr_boxes.width[seg] * widthRatio;
-                                                const height = image!.ocr_boxes.height[seg] * heightRatio;
-                                                const key = text + "-" + seg;
-                                                return (
-                                                    <React.Fragment key={key}>
-                                                    <div style={{
-                                                            position: "absolute",
-                                                            outline: "2px solid var(--danger)",
-                                                            top: top + "px",
-                                                            left: left + "px",
-                                                            width: width + "px",
-                                                            height: height + "px"
-                                                         }}
-                                                         className="ocr-highlighted-text-segment"
-                                                         data-tip
-                                                         data-for={key}>
-                                                    </div>
-                                                    <ReactTooltip id={key} place="top" effect="solid">
-                                                        Confidence: {Math.round(parseInt(conf))}%
-                                                    </ReactTooltip>
-                                                    </React.Fragment>
-                                                );
-                                            })
-                                        }
                                     </div>
                                     {(() => {
                                         const prevImage: string|null = image.prev;

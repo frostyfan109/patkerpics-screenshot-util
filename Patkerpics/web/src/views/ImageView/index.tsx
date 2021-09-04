@@ -669,7 +669,7 @@ const TagContainer = connect(
                 }}>
                 <Tag closeButton={false} className="close-tag border border-primary text-primary bg-white" name={
                     this.state.active === State.INACTIVE ? (
-                        <FaPlus style={{fontSize: "1rem"}}/>
+                        <><FaPlus style={{fontSize: "1rem"}}/><span className="ml-1" style={{fontSize: "1rem"}}>Tag</span></>
                     ) : (this.state.active === State.INPUT ? (
                         <input type="text" autoFocus onKeyDown={async (e: React.KeyboardEvent) => {
                             if (e.keyCode === 27) {
@@ -754,7 +754,7 @@ const Tag = connect(
                     ) : (
                         <>
                         {this.props.name}
-                        {this.props.closeButton && <div className="tag-close-button-container ml-2"><FaTimes className="" onClick={async () => {
+                        {this.props.closeButton && <div className="tag-close-button-container"><FaTimes className="" onClick={async () => {
                             this.setState({ loading : true });
                             try {
                                 const result = await User.removeTag(this.props.id!, this.props.name as string);

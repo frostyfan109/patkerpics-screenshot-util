@@ -83,6 +83,7 @@ export function pageLoad(): ThunkAction<Promise<void>, any, any, any> {
 function authenticateLogin(): ThunkAction<Promise<void>, any, any, any> {
     return async (dispatch: ThunkDispatch<any, any, any>, getState: Function) => {
         dispatch(setLoggedIn(true));
+        dispatch(setApplicationState(defaultApplicationState));
         dispatch(fetchUserData());
         const authenticationFailed = (error: AuthenticationError): void => { dispatch(logout()); };
         User.pollImages(

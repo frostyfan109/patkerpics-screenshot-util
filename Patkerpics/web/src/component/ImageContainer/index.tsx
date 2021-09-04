@@ -95,7 +95,7 @@ const Thumbnail = withRouter(class extends Component<ThumbnailProps, { url: stri
         return (
             <Card onClick={() => {
                 this.props.history.push({
-                    pathname : `/image/${this.props.image.id}`
+                    pathname : `/image/${this.props.image.uid}`
                 });
             }} onMouseLeave={() => {
                 this.dropdownRef.current && this.dropdownRef.current.hideDropdown();
@@ -107,8 +107,8 @@ const Thumbnail = withRouter(class extends Component<ThumbnailProps, { url: stri
                     <Hook imageId={this.props.image.id} ref={this.dropdownRef}/>
                 </div>
                 <Card.Body>
-                    <Card.Title title={this.props.image.title}>
-                        {this.props.image.title}
+                    <Card.Title title={this.props.image.title!}>
+                        {this.props.image.title!}
                     </Card.Title>
                 </Card.Body>
             </Card>
@@ -131,11 +131,16 @@ export default connect(
         userData: state.application.userData
     })
 )(class ImageContainer extends Component<Props, State> {
+    private getImages(): ImageType[]|null {
+        if (this.props.images === null) return null;
+        else return this.props.images.filter((image) => image.author.username === this.props.userData?.username);
+    }
     render() {
+        const images = this.getImages();
         return (
             <div className={classNames("ImageContainer", this.props.className)}>
                 {
-                    this.props.images !== null && (this.props.images.length === 0 ? (
+                    images !== null && (images.length === 0 ? (
                         <div className="h-100 d-flex justify-content-center align-items-center">
                             <div className="blank-state d-flex flex-column align-items-center">
                                 <span style={{display: "grid", placeItems: "center"}}>
@@ -153,7 +158,7 @@ export default connect(
                             </div> 
                         </div>
                     ) : (() => {
-                        const images: ImageType[] = this.props.images as ImageType[];
+                        // const images: ImageType[] = this.props.images as ImageType[];
                         interface ImageGroups {
                             [key: string]: ImageType[]
                         };

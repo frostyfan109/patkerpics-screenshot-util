@@ -15,6 +15,7 @@ import { throttle } from 'throttle-debounce';
 import { AuthenticationError, APIResponse } from '../../api';
 import { Accordion, Card, Button, Collapse, ListGroup, ButtonGroup } from 'react-bootstrap';
 import Avatar from 'react-avatar';
+import { WEBSITE_NAME } from '../../config';
 const InlineEdit = require('react-edit-inline2').default;
 interface P extends RouteComponentProps {
     images: image[]
@@ -93,14 +94,21 @@ export default connect(
     imageIdFromProps(props: P): number {
         return parseInt((props.match.params as any).id);
     }
+    imageUIDFromProps(props: P): string {
+        return (props.match.params as any).uid;
+    }
     imageId(): number {
-        return this.imageIdFromProps(this.props);
+        return this.getImage()!.id;
+        // return this.imageIdFromProps(this.props);
+    }
+    imageUID(): string {
+        return this.imageUIDFromProps(this.props);
     }
     getImage(): image|undefined {
-        return this.props.images.find((image: image) => image.id === this.imageId());
+        return this.props.images.find((image: image) => image.uid === this.imageUID());
     }
-    switchImage(id: number) {
-        this.props.history.push(`/image/${id}`);
+    switchImage(uid: string) {
+        this.props.history.push(`/image/${uid}`);
     }
     toggleKeyword(keyword: string) {
         const { activeKeywords } = this.state;
@@ -113,7 +121,7 @@ export default connect(
     }
     updateTitle() {
         const image = this.getImage();
-        if (image) document.title = image.title;
+        if (image) document.title = image.title || WEBSITE_NAME;
     }
     async preloadImage(image: image): Promise<void> {
         // This method's purpose is to preload and cache the image data,
@@ -137,9 +145,17 @@ export default connect(
     }
     async loadImage() {
         // this.setState({ imgSrcLoading : true });
-        this.setState({ imgEleLoaded: false, scanningOCR: false, highlightedText: [], highlighting: false, loadingKeywords: false, keywords: null, activeKeywords: [] });
+        this.setState({
+            imgEleLoaded: false,
+            scanningOCR: false,
+            highlightedText: [],
+            highlighting: false,
+            loadingKeywords: false,
+            keywords: null,
+            activeKeywords: []
+        });
         if (this.getImage() === undefined) {
-            const { message, error, image } = await User.getImage(this.imageId());
+            const { message, error, image } = await User.getImage(this.imageUID());
             if (!this.cancelled) {
                 if (error) {
                     console.log(message);
@@ -165,7 +181,7 @@ export default connect(
             console.error(message);
             this.props.addGlobalAPIError(response);
         } else {
-            const currentTags = this.getImage()!.tags;
+            const currentTags = this.getImage()!.tags!;
             // Only show keywords extracted that aren't already tags to avoid errors from trying to upload
             // duplicate tags (and avoid redundancy).
             const keywordsFiltered = keywords.filter((k) => !currentTags.includes(k.name))
@@ -266,8 +282,12 @@ export default connect(
         }
     }
     async componentDidUpdate(prevProps: P) {
-        if (this.imageIdFromProps(prevProps) !== this.imageId()) {
+        if (this.imageUIDFromProps(prevProps) !== this.imageUID()) {
             await this.loadImage();
+        }
+        if ((this.props.userData !== null && prevProps.userData === null) || (this.props.userData === null && prevProps.userData !== null)) {
+            // Login state changed
+            if (this.getImage() === undefined) await this.loadImage();
         }
         this.updateTitle();
     }
@@ -287,12 +307,14 @@ export default connect(
         //     image = this.props.images.filter((image: image) => image.id === this.imageId())[0];
         //     if (image === undefined) return redirect;
         // }
-        if (this.state.redirect || !this.props.loggedIn) return redirect;
+        if (this.state.redirect) return redirect;
         let image = this.getImage();
+        const isAuthor = image && this.props.userData && image.author.username === this.props.userData.username;
+        const showDetails = image && (image.private === 0 || isAuthor);
         return (
             <div className="ImageView" ref={this._componentRef}>
                 {
-                    (image === undefined || this.props.userData === null || !this.state.preloadImage) ? (
+                    (image === undefined || !this.state.preloadImage) ? (
                         <Loading loading={true}/>
                     ) : (() => {
                         image = image!;
@@ -301,9 +323,9 @@ export default connect(
                             <div className="image-container-top">
                                 <div className="image-container py-3">
                                     {(() => {
-                                        const nextImage: number|null = image.next;
+                                        const nextImage: string|null = image.next;
                                         return (
-                                            <div className="next-image image-arrow">
+                                            <div className="next-image image-arrow" style={{display: isAuthor ? undefined : "none"}}>
                                                 <FaCaretLeft className={nextImage === null ? "disabled" : ""}
                                                              onClick={() => nextImage && this.switchImage(nextImage)}/>
                                             </div>
@@ -322,6 +344,10 @@ export default connect(
                                         </a>
                                         {
                                             this._imageRef.current && this.state.highlightedText.map((i) => {
+                                                // When the router props change, the component renders once with
+                                                // a new image before componentDidUpdate and loadImage are called
+                                                // and set highlightedText empty.
+                                                if (!image!.ocr_boxes) return;
                                                 const img = this._imageRef.current;
                                                 const seg = i + 4;
                                                 const widthRatio = (img!.width / image!.width);
@@ -356,9 +382,9 @@ export default connect(
                                         }
                                     </div>
                                     {(() => {
-                                        const prevImage: number|null = image.prev;
+                                        const prevImage: string|null = image.prev;
                                         return (
-                                            <div className="previous-image image-arrow">
+                                            <div className="previous-image image-arrow" style={{display: isAuthor ? undefined : "none"}}>
                                                 <FaCaretRight className={prevImage === null ? "disabled" : ""}
                                                               onClick={() => prevImage && this.switchImage(prevImage)}/>
                                             </div>
@@ -366,16 +392,18 @@ export default connect(
                                     })()}
                                 </div>
                             </div>
-                            <div className="image-info-container bg-light" style={{"padding": "1.75rem 0"}}>
+                            {showDetails && (<div className="image-info-container bg-light" style={{"padding": "1.75rem 0"}}>
                                 <div className="image-info" style={{fontSize: "18px"}}>
                                     <div className="d-flex align-items-center mb-3">
-                                        <Avatar name={this.props.userData && this.props.userData.username} src={this.props.userData.profile_picture || undefined} className="mr-2" size="36" textSizeRatio={2} round style={{userSelect: "none"}}/>
-                                        <span style={{fontSize: "1em", fontWeight: 600}}>{this.props.userData && this.props.userData.username}</span>
+                                        <Avatar name={image.author.username} src={image.author.profile_picture || undefined} className="mr-2" size="36" textSizeRatio={2} round style={{userSelect: "none"}}/>
+                                        <span style={{fontSize: "1em", fontWeight: 600}}>{image.author.username}</span>
                                     </div>
                                     
                                     {/* <div className="mb-2" style={{fontSize: "1em", fontWeight: 600}}>{image.title}</div> */}
-                                    <div className="d-flex align-items-center mb-2">
-                                        <InlineEdit className=""
+                                    {showDetails && (<div className="d-flex align-items-center mb-2">
+                                        {
+                                            isAuthor ? (
+                                                <InlineEdit className=""
                                                     activeClassName="cursor-initial"
                                                     style={{
                                                         fontSize: "1em",
@@ -403,8 +431,16 @@ export default connect(
                                                         }
                                                         catch { this.props.logout(); }
                                                     }}
-                                        />
+                                                />
+                                            ) : (
+                                                <span style={{
+                                                    fontSize: "1em",
+                                                    fontWeight: 600
+                                                }}>{image.title}</span>
+                                            )
+                                        }
                                     </div>
+                                    )}
                                     <div style={{fontSize: ".85em"}}>
                                         <div className="mb-2">
                                             {
@@ -436,7 +472,7 @@ export default connect(
                                                                      className="d-flex align-items-center justify-content-between p-2 hidden">
                                                             <span className="ml-2">OCR</span>
                                                             <div>
-                                                                <ButtonGroup>
+                                                                <ButtonGroup style={{display: isAuthor ? undefined : "none"}}>
                                                                 <Button className=""
                                                                         variant={this.state.scanningOCR ? "outline-primary" : "primary"}
                                                                         disabled={this.state.scanningOCR}
@@ -492,7 +528,7 @@ export default connect(
                                                             }
                                                         </Card.Body>
                                                         {
-                                                            image.ocr_text !== "" && (
+                                                            isAuthor && image.ocr_text !== "" && (
                                                                 <Card.Footer>
                                                                     {
                                                                         this.state.keywords !== null ? (
@@ -543,14 +579,15 @@ export default connect(
                                                 ) : (this.state.scanningOCR ? (
                                                     <div className="text-muted loading">Scanning</div>
                                                 ) : (
-                                                    <a href="javascript:void(0);" onClick={() => this.scanOCR()}>Scan OCR</a>
+                                                    isAuthor && <a href="javascript:void(0);" onClick={() => this.scanOCR()}>Scan OCR</a>
                                                 ))
                                             }
                                         </div>
-                                        <div className="mt-3"><TagContainer image={image}/></div>
+                                        {isAuthor && <div className="mt-3"><TagContainer image={image}/></div>}
                                     </div>
                                 </div>
                             </div>
+                            )}
                             </>
                         );
                     })()
@@ -598,7 +635,7 @@ const TagContainer = connect(
     render() {
         return (
             <div className="tag-container">
-                {this.props.image.tags.map((tag,) => <Tag id={this.props.image.id} key={tag} name={tag} image={this.props.image}/>)}
+                {this.props.image.tags!.map((tag,) => <Tag id={this.props.image.id} key={tag} name={tag} image={this.props.image}/>)}
                 <OutsideClickHandler onOutsideClick={() => {
                     this.state.active === State.INPUT && this.setActive(State.INACTIVE);
                 }}>
@@ -622,7 +659,7 @@ const TagContainer = connect(
                                     } else {
                                         this.props.updateImage({
                                             ...this.props.image,
-                                            tags: this.props.image.tags.concat(this.state.input)
+                                            tags: this.props.image.tags!.concat(this.state.input)
                                         })
                                         // this.props.updateTag(this.props.image.id, this.state.input, UpdateTagType.ADD);
                                     }
@@ -701,7 +738,7 @@ const Tag = connect(
                                     this.props.updateImage({
                                         ...this.props.image,
                                         // In this situation, it is guarenteed that `image` is defined
-                                        tags: this.props.image!.tags.filter((tag) => tag !== this.props.name)
+                                        tags: this.props.image!.tags!.filter((tag) => tag !== this.props.name)
                                     });
                                 }
                             } catch {

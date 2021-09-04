@@ -41,7 +41,7 @@ interface OCRData {
 }
 
 interface JWTHeader {
-    Authorization: string
+    Authorization?: string
 };
 
 const li = new LoremIpsum({
@@ -240,8 +240,8 @@ export default class User {
         };
     }
     @APIRequest()
-    public static async getImage(imageId: number): Promise<APIResponse> {
-        const response = (await axios.get(BASE_API_URL + "/image/" + imageId, {
+    public static async getImage(imageUID: string): Promise<APIResponse> {
+        const response = (await axios.get(BASE_API_URL + "/image/" + imageUID, {
             headers: this.JWTAccessHeader(),
             withCredentials: true
         }));
@@ -547,16 +547,17 @@ export default class User {
     //     }
     //     return images;
     // }
-    private static JWTHeader(token: string): JWTHeader {
+    private static JWTHeader(token?: string): JWTHeader {
+        if (typeof token === "undefined") return {};
         return {
             Authorization: "Bearer " + token
         };
     }
     private static JWTAccessHeader(): JWTHeader {
-        return this.JWTHeader(this.accessToken!);
+        return this.JWTHeader(this.accessToken);
     }
     private static JWTRefreshHeader(): JWTHeader {
-        return this.JWTHeader(this.refreshToken!);
+        return this.JWTHeader(this.refreshToken);
     }
 };
 

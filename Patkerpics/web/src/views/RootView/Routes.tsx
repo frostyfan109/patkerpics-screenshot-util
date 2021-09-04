@@ -7,7 +7,7 @@ export default class Routes extends Component {
         return (
             <>
                 <Route exact path="/" component={Views.HomeView}/>
-                <Route exact path="/image/:id" component={Views.ImageView}/>
+                <Route exact path="/image/:uid" component={Views.ImageView}/>
                 {/* <Route exact path="/raw_image/:id" component={Views.RawImageView}/> */}
             </>
         );

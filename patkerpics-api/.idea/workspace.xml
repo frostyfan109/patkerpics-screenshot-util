@@ -2,11 +2,16 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="d4976c9c-0439-41e8-8c71-09ccb5406542" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/../Patkerpics/web/src/api/user.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../Patkerpics/web/src/api/user.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Patkerpics/web/src/component/ImageContainer/index.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../Patkerpics/web/src/component/ImageContainer/index.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Patkerpics/web/src/store/actions.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../Patkerpics/web/src/store/actions.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../Patkerpics/web/src/store/reducers/application.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../Patkerpics/web/src/store/reducers/application.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../Patkerpics/web/src/views/ImageView/index.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../Patkerpics/web/src/views/ImageView/index.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Patkerpics/web/src/views/RootView/RootView.css" beforeDir="false" afterPath="$PROJECT_DIR$/../Patkerpics/web/src/views/RootView/RootView.css" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app.db" beforeDir="false" afterPath="$PROJECT_DIR$/app.db" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/images/2/profile_picture/profile.png" beforeDir="false" afterPath="$PROJECT_DIR$/images/2/profile_picture/profile.png" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ocr_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/ocr_test.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/routes.py" beforeDir="false" afterPath="$PROJECT_DIR$/routes.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -19,11 +24,11 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file pinned="false" current-in-tab="true">
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/routes.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="189">
-              <caret line="193" column="20" selection-start-line="193" selection-start-column="20" selection-end-line="193" selection-end-column="20" />
+            <state relative-caret-position="376">
+              <caret line="405" column="20" lean-forward="true" selection-start-line="405" selection-start-column="20" selection-end-line="405" selection-end-column="20" />
               <folding>
                 <element signature="e#0#51#0" expanded="true" />
               </folding>
@@ -43,11 +48,11 @@
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="false">
+      <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/models.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="489">
-              <caret line="126" column="41" lean-forward="true" selection-start-line="126" selection-start-column="41" selection-end-line="126" selection-end-column="41" />
+            <state relative-caret-position="200">
+              <caret line="228" column="51" lean-forward="true" selection-start-line="228" selection-start-column="51" selection-end-line="228" selection-end-column="51" />
               <folding>
                 <element signature="e#0#9#0" expanded="true" />
               </folding>
@@ -66,25 +71,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>ocrscan</find>
-      <find>image_to_string</find>
-      <find>update()</find>
-      <find>socket_id != none</find>
-      <find>allow-headers</find>
-      <find>@api.expect</find>
-      <find>404</find>
-      <find>clear</find>
-      <find>ocr_text</find>
-      <find>modify</find>
-      <find>body.get(</find>
-      <find>parser</find>
-      <find>current_user</find>
-      <find>rake()</find>
-      <find>.ocr</find>
-      <find>inputs</find>
-      <find>tagmodel</find>
-      <find>sqlalchemy</find>
-      <find>rmtree</find>
       <find>hybr</find>
       <find>get_</find>
       <find>get_tags</find>
@@ -96,6 +82,25 @@
       <find>ocr_boxes =</find>
       <find>/</find>
       <find>serialize</find>
+      <find>image/&lt;int</find>
+      <find>imagemodel</find>
+      <find>class imagemodel</find>
+      <find>image_not_found</find>
+      <find>use_uid</find>
+      <find>author</find>
+      <find>serialize_public</find>
+      <find>usermodel</find>
+      <find>usermodal</find>
+      <find>/image/</find>
+      <find>&lt;</find>
+      <find>current_user</find>
+      <find>/image/&lt;</find>
+      <find>== 2</find>
+      <find>string:image</find>
+      <find>optional</find>
+      <find>!= current</find>
+      <find>string:image_uid</find>
+      <find>jwt_optional</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
@@ -113,8 +118,8 @@
         <option value="$PROJECT_DIR$/utils.py" />
         <option value="$PROJECT_DIR$/api.py" />
         <option value="$PROJECT_DIR$/requirements.txt" />
-        <option value="$PROJECT_DIR$/routes.py" />
         <option value="$PROJECT_DIR$/ocr_test.py" />
+        <option value="$PROJECT_DIR$/routes.py" />
         <option value="$PROJECT_DIR$/models.py" />
       </list>
     </option>
@@ -418,13 +423,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/venv/Lib/site-packages/flask_jwt_extended/view_decorators.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="227">
-          <caret line="82" column="4" selection-start-line="82" selection-start-column="4" selection-end-line="82" selection-end-column="4" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/venv/Lib/site-packages/flask/globals.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="336">
@@ -526,32 +524,30 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/ocr_test.py">
+    <entry file="file://$PROJECT_DIR$/ocr_test.py" />
+    <entry file="file://$PROJECT_DIR$/venv/Lib/site-packages/flask_jwt_extended/view_decorators.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="880">
-          <caret line="69" column="31" lean-forward="true" selection-start-line="69" selection-start-column="31" selection-end-line="69" selection-end-column="31" />
+        <state relative-caret-position="240">
+          <caret line="182" column="40" selection-start-line="182" selection-start-column="32" selection-end-line="182" selection-end-column="40" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/routes.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="376">
+          <caret line="405" column="20" lean-forward="true" selection-start-line="405" selection-start-column="20" selection-end-line="405" selection-end-column="20" />
           <folding>
-            <element signature="e#0#18#0" expanded="true" />
+            <element signature="e#0#51#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/models.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="489">
-          <caret line="126" column="41" lean-forward="true" selection-start-line="126" selection-start-column="41" selection-end-line="126" selection-end-column="41" />
+        <state relative-caret-position="200">
+          <caret line="228" column="51" lean-forward="true" selection-start-line="228" selection-start-column="51" selection-end-line="228" selection-end-column="51" />
           <folding>
             <element signature="e#0#9#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/routes.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="189">
-          <caret line="193" column="20" selection-start-line="193" selection-start-column="20" selection-end-line="193" selection-end-column="20" />
-          <folding>
-            <element signature="e#0#51#0" expanded="true" />
           </folding>
         </state>
       </provider>

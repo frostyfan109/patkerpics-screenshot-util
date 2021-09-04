@@ -95,6 +95,12 @@ class UserModel(Model):
             "profile_picture": self.get_profile_picture_b64()
         }
 
+    def serialize_public(self):
+        return {
+            "username": self.username,
+            "profile_picture": self.get_profile_picture_b64()
+        }
+
 
 class TagModel(Model):
     tag_id = db.Column(db.Integer, primary_key=True)
@@ -115,6 +121,10 @@ def generate_image_token():
     else:
         return token
 
+PUBLIC = 0
+HIDDEN = 1
+PRIVATE = 2
+
 class ImageModel(Model):
     __tablename__ = "images"
     "Internal-facing primary key for an image record. Used for nearly all API interactions."
@@ -132,6 +142,7 @@ class ImageModel(Model):
     height = db.Column(db.Integer, unique=False, nullable=False)
     # Stores file size in bytes
     file_size = db.Column(db.Integer, unique=False, nullable=False)
+    private = db.Column(db.Integer, unique=False, nullable=False)
     # file_type = db.Column(db.String, unique=False, nullable=False)
     ocr_text = db.Column(db.String, nullable=True, default=None)
     ocr_boxes = db.Column(db.String, nullable=True, default=None)
@@ -173,6 +184,7 @@ class ImageModel(Model):
         self.height = pil_img.height
         # self.file_type = mime_type
         self.uid = generate_image_token()
+        self.private = 0
         # Technically redundant now but too much work to remove.
         self.filename = self.uid + "." + image.filename.split(".")[-1]
         # This column can be quickly derived from the `filename` column,
@@ -200,23 +212,23 @@ class ImageModel(Model):
     def get_path(self):
         return os.path.join(self.get_dir(), self.filename)
 
-    def serialize(self):
+    def serialize(self, details=True, hide_next_prev=False):
         images = ImageModel.query.filter_by(user_id=self.user_id).order_by("timestamp").all()
         index = images.index(self)
         if index == len(images) - 1:
             next = None
         else:
-            next = images[index+1].image_id
+            next = images[index+1].uid
         if index == 0:
             prev = None
         else:
-            prev = images[index-1].image_id
+            prev = images[index-1].uid
         return {
                 "id": self.image_id,
                 # Format timestamp for usage with JS Date API
                 "timestamp": self.timestamp * 1000,
-                "title": self.title,
-                "tags": [tag.name for tag in self.get_tags()],
+                "title": self.title if details else None,
+                "tags": [tag.name for tag in self.get_tags()] if details else None,
                 "uid": self.uid,
                 "bit_depth": self.bit_depth,
                 "width": self.width,
@@ -226,8 +238,10 @@ class ImageModel(Model):
                 "file_size": self.file_size,
                 "ocr_text": self.ocr_text,
                 "ocr_boxes": self.ocr_boxes if self.ocr_boxes == None else json.loads(self.ocr_boxes),
-                "next": next,
-                "prev": prev
+                "private": self.private,
+                "next": next if (details and not hide_next_prev) else None,
+                "prev": prev if (details and not hide_next_prev) else None,
+                "author": UserModel.query.filter_by(id=self.user_id).first().serialize_public()
             }
 
 

@@ -15,7 +15,7 @@ export interface OCRBoxes {
     word_num: number[]
 }
 
-export interface image {
+export interface image extends privateImageDetails {
     id: number,
     uid: string,
     url: string,
@@ -27,11 +27,16 @@ export interface image {
     filename: string,
     file_size: number,
     timestamp: number,
-    title: string,
-    tags: string[],
-    prev: number|null,
-    next: number|null
+    prev: string|null,
+    next: string|null,
+    private: number,
+    author: userDataPublic,
 };
+
+interface privateImageDetails {
+    title: string | null,
+    tags: string[] | null
+}
 
 export interface userData {
     username: string,
@@ -40,6 +45,8 @@ export interface userData {
     bytes_used: number,
     profile_picture: string | null
 };
+
+type userDataPublic = Partial<userData>;
 
 export interface Keyword {
     name: string,

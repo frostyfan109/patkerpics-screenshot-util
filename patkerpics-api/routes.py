@@ -4,6 +4,7 @@ from flask_jwt_extended import (
     JWTManager, create_access_token, create_refresh_token,
     jwt_required, jwt_refresh_token_required, get_jwt_identity,
     get_raw_jwt, unset_access_cookies, unset_refresh_cookies,
+    jwt_optional
 )
 from sqlalchemy.event import listens_for
 from rake_nltk import Rake
@@ -53,10 +54,9 @@ def disconnect():
 
 
 
-def image_not_found(image, use_uid=False):
-    img_str = f"Image<id={image.id}>"
-    if use_uid:
-        img_str = f"Image<uid={image.uid}>"
+def image_not_found(**kwargs):
+    vars_str = ", ".join([k + "=" + str(kwargs[k]) for k in kwargs])
+    img_str = f"Image<{vars_str}>"
     return {
         "message": f"{img_str} does not exist.",
         "error": True,
@@ -116,17 +116,26 @@ class ImagePost(Resource):
             }, 400
 
 
-@api.route("/raw_image/<image_uid>")
+@api.route("/raw_image/<string:image_uid>")
 class StaticImage(Resource):
-    @jwt_required
+    @jwt_optional
     def get(self, image_uid):
         current_user = UserModel.query.filter_by(username=get_jwt_identity()).first()
-        image = ImageModel.query.filter_by(user_id=current_user.id, uid=image_uid).first()
+        image = ImageModel.query.filter_by(uid=image_uid).first()
+        if image.private == 2:
+            if get_jwt_identity() == None or image.user_id != current_user.id:
+                return {
+                    "message": "You do not have permission to view this image.",
+                    "error": True,
+                    "error_info": {
+                        "status_code": 403
+                    }
+                }
         if image != None:
             # `file_type` contains the mimetype of the image.
             return send_file(image.get_path(), mimetype=guess_type(image.filename)[0])
         else:
-            return image_not_found(image, use_uid=True)
+            return image_not_found(uid=image_uid)
 
 keyword_extraction_parser = api.parser()
 keyword_extraction_parser.add_argument("fuzzy_comparison_cutoff",
@@ -189,7 +198,7 @@ class KeywordExtraction(Resource):
                 "keywords": keywords
             }
         else:
-            return image_not_found(image)
+            return image_not_found(id=image_id)
 
 
 ocr_parser = api.parser()
@@ -219,7 +228,7 @@ class OCRScan(Resource):
                 "ocr_boxes": image.ocr_boxes
             }
         else:
-            return image_not_found(image)
+            return image_not_found(id=image)
 
 @api.route("/ocr/clear/<int:image_id>")
 class ClearOCR(Resource):
@@ -240,7 +249,7 @@ class ClearOCR(Resource):
                 "message": f"Successfully cleared OCR data for image<id={image_id}>."
             }
         else:
-            return image_not_found(image)
+            return image_not_found(id=image_id)
 
 """
 @api.route("/image/<int:image_id>/modify")
@@ -347,7 +356,7 @@ class ModifyImage(Resource):
 
             return response
         else:
-            return image_not_found(image)
+            return image_not_found(id=image_id)
 
 
 # @api.route("/image/<int:image_id>/modify")
@@ -370,18 +379,33 @@ class ModifyImage(Resource):
 #                 socket.emit("updateImage", image.serialize(), room=socket_id)
 
 
-@api.route("/image/<int:image_id>")
+@api.route("/image/<string:image_uid>")
 class Image(Resource):
-    @jwt_required
-    def get(self, image_id):
+    @jwt_optional
+    def get(self, image_uid):
         current_user = UserModel.query.filter_by(username=get_jwt_identity()).first()
-        image = ImageModel.query.filter_by(user_id=current_user.id, image_id=image_id).first()
+        image = ImageModel.query.filter_by(uid=image_uid).first()
+        details = True
+        not_owner = get_jwt_identity() == None or image.user_id != current_user.id
+        if image.private == 2:
+            if not_owner:
+                return {
+                    "message": "You do not have permission to view this image.",
+                    "error": True,
+                    "error_info": {
+                        "status_code": 403
+                    }
+                }
+        if image.private == 1:
+            if not_owner:
+                details = False
+
         if image is None:
-            return image_not_found(image)
+            return image_not_found(uid=image_uid)
         else:
             return {
                 "message": "Success",
-                "image": image.serialize()
+                "image": image.serialize(details=details, hide_next_prev=not_owner)
             }
 
     @jwt_required

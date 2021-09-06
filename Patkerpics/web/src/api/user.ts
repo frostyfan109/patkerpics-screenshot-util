@@ -132,6 +132,27 @@ export default class User {
         return this.refreshPromise;
     }
     @APIRequest()
+    public static async getApplicationData(): Promise<APIResponse> {
+        const resp = (await axios.get(BASE_API_URL + "/application_data"));
+        return {
+            resp,
+            ...resp.data
+        };
+    }
+    @APIRequest()
+    public static async searchImages(query: string): Promise<APIResponse> {
+        const resp = (await axios.get(BASE_API_URL + "/search" + "?" + qs.stringify({
+            q: query
+        }), {
+            headers: this.JWTAccessHeader(),
+            withCredentials: true
+        }));
+        return {
+            resp,
+            ...resp.data
+        };
+    }
+    @APIRequest()
     public static async getProfilePicture(): Promise<APIResponse> {
         const resp = (await axios.get(BASE_API_URL + "/profile/picture", {
             headers: this.JWTAccessHeader(),

@@ -77,3 +77,14 @@
     height: 100%;
     object-fit: contain;
 }
+.rbt.empty > .rbt-menu {
+    /* Hide the menu when there are no suggestions. */
+    display: none !important;
+}
+.rbt-input-hint {
+    /* Gray suggestion text from react-bootstrapt-typeahead 
+     * Disabled because of a bug with overflow where it doesn't
+     * render properly and overlays over the text (making it illegible)
+     */
+     display: none;
+}

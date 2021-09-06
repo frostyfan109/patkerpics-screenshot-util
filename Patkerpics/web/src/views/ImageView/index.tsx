@@ -282,7 +282,6 @@ export default connect(
 
         this._resizeObserver = new ResizeObserver((entries) => {
             if (this._imageRef.current) {
-                console.log("resize");
                 this.setState({ _imgWidth: this._imageRef.current.width, _imgHeight: this._imageRef.current.height });
             }
         });
@@ -343,8 +342,8 @@ export default connect(
                                     {/* <div className="image-view-img-container mx-auto"> */}
                                     <div className="mx-auto d-flex justify-content-center" style={{maxHeight: "100%"}}>
                                         <Loading loading={!this.state.imgEleLoaded}/>
-                                        <a href={image.url} target="_blank" className="mx-auto d-flex justify-content-center">
-                                            <span style={{position: "relative"}}>
+                                        <div className="mx-auto d-flex justify-content-center">
+                                            <a href={image.url} target="_blank" style={{position: "relative"}}>
                                                 <img className="image-view-img"
                                                 src={image.url}
                                                 ref={this._imageRef}
@@ -389,8 +388,8 @@ export default connect(
                                                     );
                                                 })
                                             }
-                                            </span>
-                                        </a>
+                                            </a>
+                                        </div>
                                     </div>
                                     {(() => {
                                         const prevImage: string|null = image.prev;
@@ -453,7 +452,7 @@ export default connect(
                                     </div>
                                     )}
                                     <div style={{fontSize: ".85em"}}>
-                                        <div className="mb-2">
+                                        <div className="py-1 mb-2">
                                             {
                                                 new Date(image.timestamp).toLocaleDateString("us-EN", {
                                                     year: 'numeric',
@@ -461,6 +460,9 @@ export default connect(
                                                     day: 'numeric'
                                                 })
                                             }
+                                        </div>
+                                        <div className="py-1 mb-2">
+                                            {image.app}
                                         </div>
                                         <div className="py-1 mb-2">
                                             <a href="javascript:void(0);" onClick={() => this.setState({ detailsOpen: !this.state.detailsOpen})}>Details</a>
@@ -472,7 +474,7 @@ export default connect(
                                                 </div>
                                             </Collapse>
                                         </div>
-                                        {(isAuthor || image.ocr_boxes !== null) && (<div className="mt-1">
+                                        {(isAuthor || image.ocr_boxes !== null) && (<div className="pt-1 mb-2">
                                             <a href="javascript:void(0);" onClick={() => this.openOCRModal()}>
                                                 OCR
                                             </a>
@@ -586,13 +588,13 @@ export default connect(
                                     </Button>
                                 </ButtonGroup>
                                 )}
-                                <Button className="ml-1"
+                                {image.ocr_text !== "" && <Button className="ml-1"
                                         variant={this.state.highlighting ? "outline-danger" : "success"}
                                         size="sm"
                                         onClick={() => this.setState({ highlighting: !this.state.highlighting })}>
                                     {this.state.highlighting ? "Stop" : "Highlight"}
-                                </Button>
-                                {isAuthor && image.ocr_text !== null && this.state.keywords === null && (
+                                </Button>}
+                                {isAuthor && image.ocr_text !== null && image.ocr_text !== "" && this.state.keywords === null && (
                                     <Button className="ml-1"
                                             variant="primary"
                                             size="sm"

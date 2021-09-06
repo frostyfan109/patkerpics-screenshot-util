@@ -18,10 +18,13 @@ from time import time, sleep
 from mimetypes import guess_type
 from itertools import chain
 from fuzzywuzzy import fuzz
+from datetime import datetime, timedelta
+import search_parser
 import json
 import logging
 import base64
 import time
+import werkzeug
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -65,6 +68,75 @@ def image_not_found(**kwargs):
         }
     }
 
+@api.route("/application_data")
+class ApplicationData(Resource):
+    def get(self):
+        # Return any global application constants the webapp should load into its global state
+        # This endpoint will be called indiscriminately on page load
+        return {
+            "message": "Successfully retrieved application data.",
+            "application_data": {
+                "search": {
+                    "search_qualifiers": search_parser.qualifiers,
+                    "qualifier_pattern": search_parser.js_pattern
+                }
+            }
+        }
+
+image_search_parser = api.parser()
+image_search_parser.add_argument("q", type=str, help="Search query.", location="args", required=True)
+@api.route("/search")
+class ImageSearch(Resource):
+    @jwt_required
+    @api.expect(image_search_parser)
+    def get(self):
+        args = image_search_parser.parse_args()
+        query = args["q"]
+        current_user = UserModel.query.filter_by(username=get_jwt_identity()).first()
+
+        images = ImageModel.query.filter_by(user_id=current_user.id)
+
+        print(query)
+        (query, qualifier_groups) = search_parser.search(query)
+        query = query.strip()
+        print(query)
+        for (qualifier, value) in qualifier_groups:
+            value = value.replace("+", " ")
+            if qualifier == "tag":
+                # Probably a better way to do this with hybrid_property
+                # Manually search images for tags
+                images = [image for image in images if any([value in tag.name for tag in image.get_tags()])]
+                # Convert manual search back into a query
+                images = ImageModel.query.filter(ImageModel.image_id.in_([image.image_id for image in images]))
+            elif qualifier == "app":
+                images = images.filter(ImageModel.app.contains(value))
+            elif qualifier == "before":
+                timestamp = datetime.strptime(value, "%m-%d-%y")
+                images = images.filter(ImageModel.timestamp < timestamp)
+            elif qualifier == "after":
+                timestamp = datetime.strptime(value, "%m-%d-%y")
+                images = images.filter(ImageModel.timestamp > timestamp)
+            elif qualifier == "date":
+                date = datetime.strptime(value, "%m-%d-%y")
+                day_after = date + timedelta(days=1)
+                images = images.filter((ImageModel.timestamp > date) & (ImageModel.timestamp < day_after))
+            else:
+                print(f"Unrecognized qualifier: Group<name=\"{qualifier}\", value=\"{value}\">")
+
+        # This should be replaced with an indexed search engine like Whoosh
+        # Maybe could also chunk the search query into search terms using NLTK
+        # and search using those, but that introduces more room for error.
+        if query != "":
+            images = images.filter(
+                ImageModel.title.contains(query) |
+                ImageModel.app.contains(query) |
+                ImageModel.ocr_text.contains(query)
+            )
+        return {
+            "message": "Successfully ran search query.",
+            "images": [result.uid for result in images.all()]
+        }
+
 @api.route("/profile/picture")
 class ProfilePicture(Resource):
     @jwt_required
@@ -84,16 +156,25 @@ class ProfilePicture(Resource):
         #         "profile_picture": current_user.serialize()["profile_picture"]
         #     }, room=socket_id)
 
-@api.route("/image/<string:title>")
+image_post_parser = api.parser()
+image_post_parser.add_argument("title", type=str, help="Title of the image", location="args", required=True)
+image_post_parser.add_argument("app", type=str, help="Active application at time of image capture", location="args", required=True)
+image_post_parser.add_argument("image", type=werkzeug.datastructures.FileStorage, help="Image file", location="files", required=True)
+@api.route("/image")
 class ImagePost(Resource):
     @jwt_required
-    def post(self, title):
-        image = request.files['image']
+    @api.expect(image_post_parser)
+    def post(self):
+        args = image_post_parser.parse_args()
+        title = args["title"]
+        app = args["app"]
+        image = args["image"]
         if "." in image.filename and image.filename.split(".")[-1].lower() in ["png", "jpg", "jpeg"]:
             current_user = UserModel.query.filter_by(username=get_jwt_identity()).first()
             image_model = ImageModel(
                 user_id=current_user.id,
-                title=title
+                title=title,
+                app=app
             )
             image_model.save(image)
 
@@ -122,6 +203,8 @@ class StaticImage(Resource):
     def get(self, image_uid):
         current_user = UserModel.query.filter_by(username=get_jwt_identity()).first()
         image = ImageModel.query.filter_by(uid=image_uid).first()
+        if image == None:
+            return image_not_found(uid=image_uid)
         if image.private == 2:
             if get_jwt_identity() == None or image.user_id != current_user.id:
                 return {
@@ -131,11 +214,7 @@ class StaticImage(Resource):
                         "status_code": 403
                     }
                 }
-        if image != None:
-            # `file_type` contains the mimetype of the image.
-            return send_file(image.get_path(), mimetype=guess_type(image.filename)[0])
-        else:
-            return image_not_found(uid=image_uid)
+        return send_file(image.get_path(), mimetype=guess_type(image.filename)[0])
 
 keyword_extraction_parser = api.parser()
 keyword_extraction_parser.add_argument("fuzzy_comparison_cutoff",
@@ -387,6 +466,9 @@ class Image(Resource):
         image = ImageModel.query.filter_by(uid=image_uid).first()
         details = True
         not_owner = get_jwt_identity() == None or image.user_id != current_user.id
+        if image is None:
+            return image_not_found(uid=image_uid)
+
         if image.private == 2:
             if not_owner:
                 return {
@@ -400,13 +482,10 @@ class Image(Resource):
             if not_owner:
                 details = False
 
-        if image is None:
-            return image_not_found(uid=image_uid)
-        else:
-            return {
-                "message": "Success",
-                "image": image.serialize(details=details, hide_next_prev=not_owner)
-            }
+        return {
+            "message": "Success",
+            "image": image.serialize(details=details, hide_next_prev=not_owner)
+        }
 
     @jwt_required
     def delete(self, image_id):
@@ -449,7 +528,7 @@ class UserData(Resource):
         user_data = current_user.serialize()
         return {
             "message": "Success",
-            "user_data": user_data
+            "user_data": user_data,
         }
 
 login_parser = api.parser()

@@ -9,6 +9,8 @@ export const UPDATE_IMAGE = "UPDATE_IMAGE";
 export const FETCHED_ALL_IMAGES = "FETCHED_ALL_IMAGES";
 export const ADD_GLOBAL_ERROR = "ADD_GLOBAL_ERROR";
 export const UPDATE_USER_DATA = "UPDATE_USER_DATA";
+export const SET_APPLICATION_DATA = "SET_APPLICATION_DATA";
+export const SET_SEARCH_QUERY = "SET_SEARCH_QUERY";
 
 export interface fetchedAllImagesAction {
     type: typeof FETCHED_ALL_IMAGES

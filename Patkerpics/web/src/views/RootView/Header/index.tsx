@@ -1,50 +1,143 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
+import { withRouter, RouteComponentProps } from 'react-router-dom';
 import { Navbar, Nav, Form, Button, Modal, Alert, FormControl, ProgressBar } from 'react-bootstrap';
 import { Dropdown, DropdownToggle, DropdownMenu } from 'reactstrap';
 import { LinkContainer } from 'react-router-bootstrap';
+import { Typeahead, TypeaheadMenu, Menu, TypeaheadInputSingle } from 'react-bootstrap-typeahead';
 import { FaCameraRetro, FaPlus, FaCamera, FaCircle, FaImages } from 'react-icons/fa';
 import { IoIosAdd } from 'react-icons/io';
 import Avatar from 'react-avatar';
 import Dropzone from 'react-dropzone';
 import ReactCrop from 'react-image-crop';
 import prettyBytes from 'pretty-bytes';
-import { login, logout, register, updateUserData, addGlobalAPIError } from '../../../store/actions';
+import classNames from 'classnames';
+import { login, logout, register, updateUserData, addGlobalAPIError, setSearchQuery } from '../../../store/actions';
 import { loginInterface as loginStateInterface } from '../../../store/reducers/login';
 import { userData } from '../../../store/reducers/application';
+import { SearchQualifiers } from '../../../store/reducers/page';
 // import { getBytesUsed } from '../../../store/selectors';
 import { WEBSITE_NAME } from '../../../config';
 import Cookies from 'js-cookie';
 import User from '../../../api/user';
 import { APIResponse } from '../../../api';
 import 'react-image-crop/dist/ReactCrop.css';
+import 'react-bootstrap-typeahead/css/Typeahead.css';
 
-interface HeaderProps {
+interface HeaderProps extends RouteComponentProps {
     logout: Function
+    setSearchQuery: Function
     userData: userData
     loggedIn: boolean
+    searchQuery: string|undefined,
+    qualifier_pattern: string|undefined,
+    search_qualifiers: SearchQualifiers,
+};
+interface HeaderState {
+    autocomplete: {label: string, full: string}[]
 };
 
 const Header = connect(
     (state: any) => ({
-        userData: state.application.userData
-    })
-)(class extends Component<HeaderProps, {}> {
+        userData: state.application.userData,
+        searchQuery: state.page.searchQuery,
+        qualifier_pattern: state.page.applicationData?.search.qualifier_pattern,
+        search_qualifiers: state.page.applicationData?.search.search_qualifiers
+    }),
+    { setSearchQuery }
+)(withRouter(class extends Component<HeaderProps, HeaderState> {
     private loginModal = React.createRef<LoginModalClass>();
+    private typeahead = React.createRef<Typeahead<any>>();
     constructor(props: HeaderProps) {
         super(props);
+
+        this.state = {
+            autocomplete: []
+        };
 
         this.openLoginModal = this.openLoginModal.bind(this);
     }
     private openLoginModal(signup: boolean = false): void {
         this.loginModal.current && this.loginModal.current.show(signup);
     }
+    private updateSearch(value: string) {
+        this.setState({ autocomplete: [] });
+        if (!this.typeahead.current) return;
+        // this.typeahead.current.state.selected = [];
+        // this.typeahead.current.getInput().value = e;
+        
+        this.props.setSearchQuery(value);
+        if (value === "" || typeof(value) === "undefined") {
+            this.props.history.push("/");
+        } else {
+            // Bug with version of the history lib that react-router uses.
+            // See: https://stackoverflow.com/questions/48523058/encoding-uri-using-link-of-react-router-dom-not-working
+            this.props.history.push("/search/" + encodeURIComponent(encodeURIComponent(value)));
+        }
+    }
+    private updateTypeahead() {
+        if (this.typeahead.current) {
+            console.log("set value");
+            this.typeahead.current.getInput().value = this.props.searchQuery || "";
+            const value = this.typeahead.current.getInput().value;
+            if (this.props.qualifier_pattern && this.props.userData) {
+                const { qualifier_values, qualifier_value_frequency } = this.props.userData;
+                const inputPosition = this.typeahead.current.getInput().selectionStart!;
+                const re = new RegExp(this.props.qualifier_pattern, "gi");
+                let match: any;
+                while (match = re.exec(value)) {
+                    const { qualifier, value: qualifierValue } = match.groups as any;
+                    if (inputPosition >= match.index && inputPosition <= match.index + match[0].length) {
+                        const qualifierGroup = match[0];
+                        const pos = inputPosition - match.index;
+                        // Only suggest if editing the end of the qualifier or value
+                        if (pos === qualifier.length) {
+                            // Editing end of qualifier
+                        } else if (pos === qualifierGroup.length) {
+                            // Editing end of value
+                            const qualifierType = this.props.search_qualifiers[qualifier];
+                            // Make sure the qualifier is valid
+                            if (qualifierType !== undefined) {
+                                const possibleValues = qualifier_values[qualifier].filter((val) => val.startsWith(qualifierValue));
+                                if (possibleValues) {
+                                    this.setState({ autocomplete : possibleValues.map((pVal) => {
+                                        const newQualifierGroup = qualifier + ":" + pVal;
+                                        const startSearch = value.slice(0, match.index);
+                                        const endSearch = value.slice(match.index + qualifierGroup.length, value.length);
+    
+                                        const startOfQualifierValue = qualifierGroup.indexOf(qualifier) + qualifier.length + 1;
+                                        const full = startSearch + qualifierGroup.slice(0, startOfQualifierValue) + pVal + endSearch;
+                                        console.log(full);
+                                        return {
+                                            label: newQualifierGroup,
+                                            full
+                                        };
+                                    })});
+                                }
+                            } else {
+                                // Highlight the qualifier as invalid
+                                /* TODO */
+                            }
+                        }
+                    };
+                }
+            }
+        }
+    }
+    componentDidMount() {
+        this.updateTypeahead();
+    }
+    componentDidUpdate(prevProps: HeaderProps) {
+        if (this.props.searchQuery !== prevProps.searchQuery) {
+            this.updateTypeahead();
+        }
+    }
     render() {
         return (
             <>
             <LoginModal ref={this.loginModal}/>
             <Navbar bg="light" expand="md">
-                <LinkContainer exact to="/">
+                <LinkContainer exact to="/" onClick={() => this.props.setSearchQuery(undefined)}>
                     <Nav.Link className="p-0" >
                         <Navbar.Brand className="d-flex align-items-center">
                             <FaCameraRetro className="mr-2" style={{ fontSize : "1.5rem"}}/>
@@ -67,7 +160,28 @@ const Header = connect(
                             ) : (
                                 this.props.userData && (
                                     <>
-                                    <FormControl placeholder="Search captures" className="mr-2"/>
+                                    <Typeahead ref={this.typeahead}
+                                               placeholder="Search captures"
+                                               className={classNames("mr-2", this.state.autocomplete.length === 0 && "empty")}
+                                               id="search-bar"
+                                               labelKey={(opt) => opt.full}
+                                               highlightOnlyResult={false}
+                                               renderInput={(inputProps: any) => (
+                                                   <Form.Control {...inputProps}
+                                                                 ref={(input: any) => {
+                                                                     inputProps.inputRef(input);
+                                                                     inputProps.referenceElementRef(input);
+                                                                 }}
+                                                                 value={this.props.searchQuery}/>
+                                               )}
+                                               renderMenuItemChildren={(option, props, index) => {
+                                                   return <span>{option.label}</span>;
+                                               }}
+                                               options={this.state.autocomplete}
+                                               onChange={(selected) => selected.length > 0 && this.updateSearch(selected[0].full)}
+                                               onInputChange={(text, e) => this.updateSearch(text)}/>
+
+                                    {/* <FormControl value={this.props.searchQuery || ""} placeholder="Search captures" className="mr-2" onChange={(e) => this.updateSearch(e)}/> */}
                                     <AvatarDropdown data={this.props.userData}/>
                                     {/* <Button variant="secondary" onClick={(): void => {this.props.logout();}}>Logout</Button> */}
                                     </>
@@ -80,7 +194,7 @@ const Header = connect(
             </>
         );
     }
-});
+}));
 interface ADP {
     data: userData
     logout: Function,

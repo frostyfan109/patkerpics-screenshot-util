@@ -2,14 +2,19 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="d4976c9c-0439-41e8-8c71-09ccb5406542" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/search_parser.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Patkerpics/web/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/../Patkerpics/web/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Patkerpics/web/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../Patkerpics/web/package.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../Patkerpics/web/src/api/user.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../Patkerpics/web/src/api/user.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../Patkerpics/web/src/component/ImageContainer/index.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../Patkerpics/web/src/component/ImageContainer/index.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Patkerpics/web/src/store/actionTypes.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../Patkerpics/web/src/store/actionTypes.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../Patkerpics/web/src/store/actions.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../Patkerpics/web/src/store/actions.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../Patkerpics/web/src/store/reducers/application.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../Patkerpics/web/src/store/reducers/application.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Patkerpics/web/src/views/HomeView/index.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../Patkerpics/web/src/views/HomeView/index.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../Patkerpics/web/src/views/ImageView/index.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../Patkerpics/web/src/views/ImageView/index.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Patkerpics/web/src/views/RootView/RootView.css" beforeDir="false" afterPath="$PROJECT_DIR$/../Patkerpics/web/src/views/RootView/RootView.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Patkerpics/web/src/views/RootView/Header/index.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../Patkerpics/web/src/views/RootView/Header/index.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app.db" beforeDir="false" afterPath="$PROJECT_DIR$/app.db" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/images/2/profile_picture/profile.png" beforeDir="false" afterPath="$PROJECT_DIR$/images/2/profile_picture/profile.png" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/models.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/routes.py" beforeDir="false" afterPath="$PROJECT_DIR$/routes.py" afterDir="false" />
     </list>
@@ -27,8 +32,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/routes.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="376">
-              <caret line="405" column="20" lean-forward="true" selection-start-line="405" selection-start-column="20" selection-end-line="405" selection-end-column="20" />
+            <state relative-caret-position="172">
+              <caret line="100" column="29" selection-start-line="100" selection-start-column="29" selection-end-line="100" selection-end-column="29" />
               <folding>
                 <element signature="e#0#51#0" expanded="true" />
               </folding>
@@ -36,23 +41,20 @@
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/api.py">
+      <file pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/search_parser.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="376">
-              <caret line="37" column="40" selection-start-line="37" selection-start-column="40" selection-end-line="37" selection-end-column="40" />
-              <folding>
-                <element signature="e#0#14#0" expanded="true" />
-              </folding>
+            <state relative-caret-position="170">
+              <caret line="10" column="71" selection-start-line="10" selection-start-column="71" selection-end-line="10" selection-end-column="71" />
             </state>
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="true">
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/models.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="200">
-              <caret line="228" column="51" lean-forward="true" selection-start-line="228" selection-start-column="51" selection-end-line="228" selection-end-column="51" />
+            <state relative-caret-position="65">
+              <caret line="92" column="54" selection-start-line="92" selection-start-column="54" selection-end-line="92" selection-end-column="54" />
               <folding>
                 <element signature="e#0#9#0" expanded="true" />
               </folding>
@@ -71,36 +73,36 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>hybr</find>
-      <find>get_</find>
-      <find>get_tags</find>
-      <find>chain.from</find>
+      <find>/image/&lt;string:</find>
+      <find>image.private == 2</find>
+      <find>image.private ==2</find>
+      <find>image.private</find>
+      <find>search</find>
+      <find>groupe</find>
+      <find>search_parser</find>
+      <find>search_parser.</find>
       <find>fuzz.</find>
-      <find>fuzzy_score_cutoff</find>
-      <find>x.reverse</find>
-      <find>ocr_boxes</find>
-      <find>ocr_boxes =</find>
-      <find>/</find>
+      <find>keywro</find>
+      <find>keywords</find>
+      <find>datetime</find>
+      <find>timedelta</find>
+      <find>timestamp =</find>
       <find>serialize</find>
-      <find>image/&lt;int</find>
-      <find>imagemodel</find>
-      <find>class imagemodel</find>
-      <find>image_not_found</find>
-      <find>use_uid</find>
-      <find>author</find>
-      <find>serialize_public</find>
+      <find>app</find>
+      <find>current</find>
+      <find>userdata</find>
+      <find>qualifier_values</find>
       <find>usermodel</find>
-      <find>usermodal</find>
-      <find>/image/</find>
-      <find>&lt;</find>
-      <find>current_user</find>
-      <find>/image/&lt;</find>
-      <find>== 2</find>
-      <find>string:image</find>
-      <find>optional</find>
-      <find>!= current</find>
-      <find>string:image_uid</find>
-      <find>jwt_optional</find>
+      <find>application</find>
+      <find>chain.</find>
+      <find>chain</find>
+      <find>counter(</find>
+      <find>get_images</find>
+      <find>application_data</find>
+      <find>.pattern</find>
+      <find>/search</find>
+      <find>results</find>
+      <find>.in_</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
@@ -119,8 +121,10 @@
         <option value="$PROJECT_DIR$/api.py" />
         <option value="$PROJECT_DIR$/requirements.txt" />
         <option value="$PROJECT_DIR$/ocr_test.py" />
-        <option value="$PROJECT_DIR$/routes.py" />
+        <option value="$PROJECT_DIR$/search_grammar.py" />
         <option value="$PROJECT_DIR$/models.py" />
+        <option value="$PROJECT_DIR$/routes.py" />
+        <option value="$PROJECT_DIR$/search_parser.py" />
       </list>
     </option>
   </component>
@@ -206,7 +210,7 @@
     <frame x="-7" y="-7" width="1550" height="838" extended-state="6" />
     <editor active="true" />
     <layout>
-      <window_info active="true" content_ui="combo" id="Project" order="0" sideWeight="0.4978903" visible="true" weight="0.22523117" />
+      <window_info content_ui="combo" id="Project" order="0" sideWeight="0.4978903" visible="true" weight="0.22523117" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info id="Favorites" order="2" sideWeight="0.5021097" side_tool="true" weight="0.22523117" />
       <window_info anchor="bottom" id="Message" order="0" />
@@ -217,7 +221,7 @@
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
       <window_info anchor="bottom" id="TODO" order="6" />
       <window_info anchor="bottom" id="Version Control" order="7" />
-      <window_info anchor="bottom" id="Terminal" order="8" />
+      <window_info anchor="bottom" id="Terminal" order="8" weight="0.32956153" />
       <window_info anchor="bottom" id="Event Log" order="9" sideWeight="0.5006605" side_tool="true" weight="0.32956153" />
       <window_info anchor="bottom" id="Python Console" order="10" />
       <window_info anchor="bottom" id="Thumbnails" order="11" weight="0.32956153" />
@@ -227,15 +231,6 @@
     </layout>
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/images/1/0.png" />
-    <entry file="file://$PROJECT_DIR$/images/1/1.jpg" />
-    <entry file="file://$PROJECT_DIR$/venv/Lib/site-packages/sqlalchemy/event/api.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="48">
-          <caret line="65" column="4" selection-start-line="65" selection-start-column="4" selection-end-line="65" selection-end-column="4" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/venv/Lib/site-packages/flask/views.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="149">
@@ -500,16 +495,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/api.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="376">
-          <caret line="37" column="40" selection-start-line="37" selection-start-column="40" selection-end-line="37" selection-end-column="40" />
-          <folding>
-            <element signature="e#0#14#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/venv/Lib/site-packages/sqlalchemy/ext/hybrid.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="227">
@@ -532,23 +517,54 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/routes.py">
+    <entry file="file://$USER_HOME$/AppData/Local/Programs/Python/Python37/Lib/argparse.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="278">
+          <caret line="1321" column="8" selection-start-line="1321" selection-start-column="8" selection-end-line="1321" selection-end-column="8" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$USER_HOME$/AppData/Local/Programs/Python/Python37/Lib/re.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="227">
+          <caret line="224" column="4" selection-start-line="224" selection-start-column="4" selection-end-line="224" selection-end-column="4" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/api.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="376">
-          <caret line="405" column="20" lean-forward="true" selection-start-line="405" selection-start-column="20" selection-end-line="405" selection-end-column="20" />
+          <caret line="37" column="40" selection-start-line="37" selection-start-column="40" selection-end-line="37" selection-end-column="40" />
           <folding>
-            <element signature="e#0#51#0" expanded="true" />
+            <element signature="e#0#14#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/models.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="200">
-          <caret line="228" column="51" lean-forward="true" selection-start-line="228" selection-start-column="51" selection-end-line="228" selection-end-column="51" />
+        <state relative-caret-position="65">
+          <caret line="92" column="54" selection-start-line="92" selection-start-column="54" selection-end-line="92" selection-end-column="54" />
           <folding>
             <element signature="e#0#9#0" expanded="true" />
           </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/routes.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="172">
+          <caret line="100" column="29" selection-start-line="100" selection-start-column="29" selection-end-line="100" selection-end-column="29" />
+          <folding>
+            <element signature="e#0#51#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/search_parser.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="170">
+          <caret line="10" column="71" selection-start-line="10" selection-start-column="71" selection-end-line="10" selection-end-column="71" />
         </state>
       </provider>
     </entry>

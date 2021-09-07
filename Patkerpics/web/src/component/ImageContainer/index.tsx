@@ -197,7 +197,7 @@ export default connect(
     }
     private updateSearch() {
         const searchQuery = this.getSearchQuery();
-        console.log("update");
+        // console.log("update");
         this.setState({ loadingSearch: false, searchImages: null });
         if (searchQuery !== "" && typeof searchQuery !== "undefined") {
             this.setState({ loadingSearch: true });

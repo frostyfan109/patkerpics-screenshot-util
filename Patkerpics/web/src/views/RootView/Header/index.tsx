@@ -4,9 +4,11 @@ import { withRouter, RouteComponentProps } from 'react-router-dom';
 import { Navbar, Nav, Form, Button, Modal, Alert, FormControl, ProgressBar } from 'react-bootstrap';
 import { Dropdown, DropdownToggle, DropdownMenu } from 'reactstrap';
 import { LinkContainer } from 'react-router-bootstrap';
-import { Typeahead, TypeaheadMenu, Menu, TypeaheadInputSingle } from 'react-bootstrap-typeahead';
+import { Typeahead, TypeaheadMenu, Menu, MenuItem } from 'react-bootstrap-typeahead';
 import { FaCameraRetro, FaPlus, FaCamera, FaCircle, FaImages } from 'react-icons/fa';
 import { IoIosAdd } from 'react-icons/io';
+import DayPicker from 'react-day-picker';
+import Loading from '../../../component/Loading';
 import Avatar from 'react-avatar';
 import Dropzone from 'react-dropzone';
 import ReactCrop from 'react-image-crop';
@@ -23,6 +25,7 @@ import User from '../../../api/user';
 import { APIResponse } from '../../../api';
 import 'react-image-crop/dist/ReactCrop.css';
 import 'react-bootstrap-typeahead/css/Typeahead.css';
+import 'react-day-picker/lib/style.css';
 
 interface HeaderProps extends RouteComponentProps {
     logout: Function
@@ -33,8 +36,14 @@ interface HeaderProps extends RouteComponentProps {
     qualifier_pattern: string|undefined,
     search_qualifiers: SearchQualifiers,
 };
+interface DatePopup {
+    callback: Function,
+    min: number,
+    max: number
+}
 interface HeaderState {
-    autocomplete: {label: string, full: string}[]
+    autocomplete: {label: string, full: string}[],
+    datePopup: DatePopup|null
 };
 
 const Header = connect(
@@ -52,7 +61,8 @@ const Header = connect(
         super(props);
 
         this.state = {
-            autocomplete: []
+            autocomplete: [],
+            datePopup: null
         };
 
         this.openLoginModal = this.openLoginModal.bind(this);
@@ -61,7 +71,7 @@ const Header = connect(
         this.loginModal.current && this.loginModal.current.show(signup);
     }
     private updateSearch(value: string) {
-        this.setState({ autocomplete: [] });
+        this.setState({ autocomplete: [], datePopup: null });
         if (!this.typeahead.current) return;
         // this.typeahead.current.state.selected = [];
         // this.typeahead.current.getInput().value = e;
@@ -77,12 +87,21 @@ const Header = connect(
     }
     private updateTypeahead() {
         if (this.typeahead.current) {
-            console.log("set value");
-            this.typeahead.current.getInput().value = this.props.searchQuery || "";
+            this.setState({ autocomplete: [], datePopup: null });
+            // console.log("set value");
+            // const input = this.typeahead.current.getInput();
+            // input.value = this.props.searchQuery || "";
             const value = this.typeahead.current.getInput().value;
             if (this.props.qualifier_pattern && this.props.userData) {
                 const { qualifier_values, qualifier_value_frequency } = this.props.userData;
                 const inputPosition = this.typeahead.current.getInput().selectionStart!;
+                if (inputPosition !== value.length) {
+                    // This is the behavior used in programs like Discord for searching.
+                    // Completion is actually fully supported part-way through the input value,
+                    // but the react-bootstrap-typeahead menu breaks and there is no workaround.
+                    
+                    // return;
+                }
                 const re = new RegExp(this.props.qualifier_pattern, "gi");
                 let match: any;
                 while (match = re.exec(value)) {
@@ -98,21 +117,37 @@ const Header = connect(
                             const qualifierType = this.props.search_qualifiers[qualifier];
                             // Make sure the qualifier is valid
                             if (qualifierType !== undefined) {
-                                const possibleValues = qualifier_values[qualifier].filter((val) => val.startsWith(qualifierValue));
-                                if (possibleValues) {
-                                    this.setState({ autocomplete : possibleValues.map((pVal) => {
-                                        const newQualifierGroup = qualifier + ":" + pVal;
-                                        const startSearch = value.slice(0, match.index);
-                                        const endSearch = value.slice(match.index + qualifierGroup.length, value.length);
-    
-                                        const startOfQualifierValue = qualifierGroup.indexOf(qualifier) + qualifier.length + 1;
-                                        const full = startSearch + qualifierGroup.slice(0, startOfQualifierValue) + pVal + endSearch;
-                                        console.log(full);
-                                        return {
-                                            label: newQualifierGroup,
-                                            full
-                                        };
-                                    })});
+                                const validQualifierValues = qualifier_values[qualifier];
+                                const startSearch = value.slice(0, match.index);
+                                const endSearch = value.slice(match.index + qualifierGroup.length, value.length);
+                                const startOfQualifierValue = qualifierGroup.indexOf(qualifier) + qualifier.length + 1;
+                                if (qualifierType === "string") {
+                                    if (validQualifierValues !== null) {
+                                        const possibleValues = validQualifierValues.filter((val) => val.startsWith(qualifierValue));
+                                        const possibleValuesFormatted = possibleValues.map((pVal) => {
+                                            const newQualifierGroup = qualifier + ":" + pVal;
+                                            const full = startSearch + qualifierGroup.slice(0, startOfQualifierValue) + pVal + endSearch;
+                                            return {
+                                                label: newQualifierGroup,
+                                                full
+                                            };
+                                        });
+                                        this.setState({ autocomplete : possibleValuesFormatted });
+                                    }
+                                }
+                                if (qualifierType === "date") {
+                                    if (qualifierValue === "") {
+                                        this.setState({ datePopup: {
+                                            callback: () => {
+                                                const dateString = "foobar";
+                                                const full = startSearch + qualifierGroup.slice(0, startOfQualifierValue) + dateString + endSearch;
+                                                this.props.setSearchQuery(full);
+                                                this.setState({ datePopup : null });
+                                            },
+                                            min: 0,
+                                            max: 1e15
+                                        }});
+                                    }
                                 }
                             } else {
                                 // Highlight the qualifier as invalid
@@ -129,7 +164,7 @@ const Header = connect(
     }
     componentDidUpdate(prevProps: HeaderProps) {
         if (this.props.searchQuery !== prevProps.searchQuery) {
-            this.updateTypeahead();
+            this.setState({}, () => this.updateTypeahead());
         }
     }
     render() {
@@ -160,27 +195,44 @@ const Header = connect(
                             ) : (
                                 this.props.userData && (
                                     <>
-                                    <Typeahead ref={this.typeahead}
-                                               placeholder="Search captures"
-                                               className={classNames("mr-2", this.state.autocomplete.length === 0 && "empty")}
-                                               id="search-bar"
-                                               labelKey={(opt) => opt.full}
-                                               highlightOnlyResult={false}
-                                               renderInput={(inputProps: any) => (
+                                    <div style={{position: "relative"}} onBlur={() => this.setState({ autocomplete: [], datePopup: null })}>
+                                        <Typeahead ref={this.typeahead}
+                                                placeholder="Search captures"
+                                                className={classNames("mr-2", this.state.autocomplete.length === 0 && "empty")}
+                                                id="search-bar"
+                                                labelKey={(opt) => opt.full}
+                                                inputProps={{onSelect: () => this.updateTypeahead()}}
+                                                highlightOnlyResult={false}
+                                                filterBy={(option, props) => true}
+                                                renderMenu={(results, menuProps) => (
+                                                    <Menu {...menuProps}>
+                                                        {results.map((result, index) => (
+                                                            <MenuItem option={result} position={index}>
+                                                                {result.label}
+                                                            </MenuItem>
+                                                        ))}
+                                                    </Menu>
+                                                )}
+                                                selected={[{full: this.props.searchQuery || "", label: this.props.searchQuery || ""}]}
+                                                options={this.state.autocomplete}
+                                                onFocus={() => this.updateTypeahead()}
+                                                onChange={(selected) => selected.length > 0 && this.updateSearch(selected[0].full)}
+                                                onInputChange={(text, e) => this.updateSearch(text)}/>
+                                        {this.state.datePopup !== null && (
+                                            <DayPicker disabledDays={{
+                                                before: new Date(this.state.datePopup.min * 1000),
+                                                after: new Date(this.state.datePopup.max * 1000)
+                                            }} className="search-date-picker shadow shadow-md"/>
+                                        )}
+                                    </div>
+                                    {/*renderInput={(inputProps: any) => (
                                                    <Form.Control {...inputProps}
                                                                  ref={(input: any) => {
                                                                      inputProps.inputRef(input);
                                                                      inputProps.referenceElementRef(input);
                                                                  }}
                                                                  value={this.props.searchQuery}/>
-                                               )}
-                                               renderMenuItemChildren={(option, props, index) => {
-                                                   return <span>{option.label}</span>;
-                                               }}
-                                               options={this.state.autocomplete}
-                                               onChange={(selected) => selected.length > 0 && this.updateSearch(selected[0].full)}
-                                               onInputChange={(text, e) => this.updateSearch(text)}/>
-
+                                                                )}*/}
                                     {/* <FormControl value={this.props.searchQuery || ""} placeholder="Search captures" className="mr-2" onChange={(e) => this.updateSearch(e)}/> */}
                                     <AvatarDropdown data={this.props.userData}/>
                                     {/* <Button variant="secondary" onClick={(): void => {this.props.logout();}}>Logout</Button> */}
@@ -369,7 +421,10 @@ const AvatarDropdown = connect(
                     </div>
                 </DropdownMenu>
             </Dropdown>
-            <Modal className="change-avatar-modal" show={this.state.avatarModal} onHide={() => this.setState({ avatarModal : false })}>
+            <Modal className="change-avatar-modal"
+                   show={this.state.avatarModal}
+                   onHide={() => this.setState({ avatarModal : false })}
+                   backdrop="static">
                 <Modal.Header closeButton>
                     <Modal.Title>Select profile photo</Modal.Title>
                 </Modal.Header>
@@ -383,7 +438,7 @@ const AvatarDropdown = connect(
                                        onImageLoaded={(image) => this.imageCropperLoaded(image)}
                                        onChange={(crop) => this.setState({ crop })}/>
                         ) : (this.state.avatarUploading ? (
-                            <span>Uploading</span>
+                            <Loading loading={true}/>
                         ) : (
                             <Dropzone accept="image/*" multiple={false} onDrop={(file) => this.uploadFile(file)}>
                                 {({getRootProps, getInputProps}) => (

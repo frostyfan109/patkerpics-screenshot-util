@@ -98,18 +98,11 @@ class UserModel(Model):
         oldest_image = images[-1] if len(images) > 0 else None
         return {
             "qualifier_values": {
-                "tag": list(tag_values.keys()),
-                "app": list(app_values.keys()),
-                "before": newest_image.timestamp.timestamp(),
-                "after": oldest_image.timestamp.timestamp(),
-                "date": None
-            },
-            "qualifier_value_frequency": {
-                "tag": list(tag_values.values()),
-                "app": list(app_values.values()),
-                "before": None,
-                "after": None,
-                "date": None
+                "tag": [v for (v, freq) in tag_values.most_common()],
+                "app": [v for (v, freq) in app_values.most_common()],
+                "before": [oldest_image.timestamp.timestamp(), newest_image.timestamp.timestamp()],
+                "after": [oldest_image.timestamp.timestamp(), newest_image.timestamp.timestamp()],
+                "date": [oldest_image.timestamp.timestamp(), newest_image.timestamp.timestamp()]
             }
 
         }

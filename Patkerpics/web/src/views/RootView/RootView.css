@@ -47,12 +47,11 @@
     display: flex !important;
     justify-content: center;
     align-items: center;
-    height: 70%;
 }
 .change-avatar-modal > .modal-dialog {
     /* max-width: 70%; */
     /* min-width: 70%; */
-    width: 100%;
+    min-width: min(70%, 600px);
     height: 70%;
     margin: 0;
 }
@@ -87,4 +86,10 @@
      * render properly and overlays over the text (making it illegible)
      */
      display: none;
+}
+.search-date-picker {
+    position: absolute;
+    top: calc(100% + 1rem);
+    background-color: var(--light);
+    z-index:20000;
 }

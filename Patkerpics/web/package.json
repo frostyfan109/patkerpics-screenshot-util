@@ -60,6 +60,7 @@
     "react-avatar": "^3.10.0",
     "react-bootstrap": "^1.0.1",
     "react-bootstrap-typeahead": "^5.2.0",
+    "react-day-picker": "^7.4.10",
     "react-dom": "^16.9.0",
     "react-dropzone": "^11.3.4",
     "react-edit-inline2": "^1.0.2",

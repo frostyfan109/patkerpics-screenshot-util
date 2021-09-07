@@ -102,24 +102,35 @@ class ImageSearch(Resource):
         print(query)
         for (qualifier, value) in qualifier_groups:
             value = value.replace("+", " ")
+            if search_parser.qualifiers.get(qualifier) == "date":
+                # The type of qualifier value is a date
+                try:
+                    # TODO: parse year timestamps (e.g. "2021")
+                    timestamp = datetime.strptime(value, "%m-%d-%y")
+                except:
+                    # Invalid timestamp
+                    continue
             if qualifier == "tag":
                 # Probably a better way to do this with hybrid_property
                 # Manually search images for tags
-                images = [image for image in images if any([value in tag.name for tag in image.get_tags()])]
+                images = [image for image in images if any([tag.name.startswith(value) for tag in image.get_tags()])]
+
                 # Convert manual search back into a query
-                images = ImageModel.query.filter(ImageModel.image_id.in_([image.image_id for image in images]))
+                if len(images) == 0:
+                    # Avoid using IN operator on an empty list
+                    # Create an empty query
+                    images = ImageModel.query.filter(False)
+                else:
+                    images = ImageModel.query.filter(ImageModel.image_id.in_([image.image_id for image in images]))
             elif qualifier == "app":
                 images = images.filter(ImageModel.app.contains(value))
             elif qualifier == "before":
-                timestamp = datetime.strptime(value, "%m-%d-%y")
                 images = images.filter(ImageModel.timestamp < timestamp)
             elif qualifier == "after":
-                timestamp = datetime.strptime(value, "%m-%d-%y")
                 images = images.filter(ImageModel.timestamp > timestamp)
             elif qualifier == "date":
-                date = datetime.strptime(value, "%m-%d-%y")
-                day_after = date + timedelta(days=1)
-                images = images.filter((ImageModel.timestamp > date) & (ImageModel.timestamp < day_after))
+                day_after = timestamp + timedelta(days=1)
+                images = images.filter((ImageModel.timestamp > timestamp) & (ImageModel.timestamp < day_after))
             else:
                 print(f"Unrecognized qualifier: Group<name=\"{qualifier}\", value=\"{value}\">")
 

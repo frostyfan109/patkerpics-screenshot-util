@@ -5,6 +5,7 @@ import { Navbar, Nav, Form, Button, Modal, Alert, FormControl, ProgressBar } fro
 import { Dropdown, DropdownToggle, DropdownMenu } from 'reactstrap';
 import { LinkContainer } from 'react-router-bootstrap';
 import { Typeahead, TypeaheadMenu, Menu, MenuItem } from 'react-bootstrap-typeahead';
+import { Manager, Reference, Popper } from 'react-popper';
 import { FaCameraRetro, FaPlus, FaCamera, FaCircle, FaImages } from 'react-icons/fa';
 import { IoIosAdd } from 'react-icons/io';
 import DayPicker from 'react-day-picker';
@@ -42,7 +43,7 @@ interface DatePopup {
     max: number
 }
 interface HeaderState {
-    autocomplete: {label: string, full: string}[],
+    autocomplete: {label: string, full: string, working: string}[],
     datePopup: DatePopup|null
 };
 
@@ -99,8 +100,7 @@ const Header = connect(
                     // This is the behavior used in programs like Discord for searching.
                     // Completion is actually fully supported part-way through the input value,
                     // but the react-bootstrap-typeahead menu breaks and there is no workaround.
-                    
-                    // return;
+                    return;
                 }
                 const re = new RegExp(this.props.qualifier_pattern, "gi");
                 let match: any;
@@ -127,8 +127,10 @@ const Header = connect(
                                         const possibleValuesFormatted = possibleValues.map((pVal) => {
                                             const newQualifierGroup = qualifier + ":" + pVal;
                                             const full = startSearch + qualifierGroup.slice(0, startOfQualifierValue) + pVal + endSearch;
+                                            const working = startSearch + qualifierGroup;
                                             return {
                                                 label: newQualifierGroup,
+                                                working,
                                                 full
                                             };
                                         });
@@ -196,34 +198,49 @@ const Header = connect(
                                 this.props.userData && (
                                     <>
                                     <div style={{position: "relative"}} onBlur={() => this.setState({ autocomplete: [], datePopup: null })}>
-                                        <Typeahead ref={this.typeahead}
-                                                placeholder="Search captures"
-                                                className={classNames("mr-2", this.state.autocomplete.length === 0 && "empty")}
-                                                id="search-bar"
-                                                labelKey={(opt) => opt.full}
-                                                inputProps={{onSelect: () => this.updateTypeahead()}}
-                                                highlightOnlyResult={false}
-                                                filterBy={(option, props) => true}
-                                                renderMenu={(results, menuProps) => (
-                                                    <Menu {...menuProps}>
-                                                        {results.map((result, index) => (
-                                                            <MenuItem option={result} position={index}>
-                                                                {result.label}
-                                                            </MenuItem>
-                                                        ))}
-                                                    </Menu>
+                                        <Manager>
+                                            <Reference>
+                                                {({ ref }) => (
+                                                    <div ref={ref}>
+                                                        <Typeahead ref={this.typeahead}
+                                                                placeholder="Search captures"
+                                                                className={classNames("mr-2", this.state.autocomplete.length === 0 && "empty")}
+                                                                id="search-bar"
+                                                                labelKey={(opt) => opt.working}
+                                                                inputProps={{onSelect: () => this.updateTypeahead()}}
+                                                                highlightOnlyResult={false}
+                                                                filterBy={(option, props) => true}
+                                                                renderMenu={(results, menuProps) => (
+                                                                    <Menu {...menuProps}>
+                                                                        {results.map((result, index) => (
+                                                                            <MenuItem option={result} position={index}>
+                                                                                {result.label}
+                                                                            </MenuItem>
+                                                                        ))}
+                                                                    </Menu>
+                                                                )}
+                                                                selected={[{full: this.props.searchQuery || "", label: this.props.searchQuery || "", working: this.props.searchQuery || ""}]}
+                                                                options={this.state.autocomplete}
+                                                                onFocus={() => this.updateTypeahead()}
+                                                                onChange={(selected) => selected.length > 0 && this.updateSearch(selected[0].full)}
+                                                                onInputChange={(text, e) => this.updateSearch(text)}/>
+                                                    </div>
                                                 )}
-                                                selected={[{full: this.props.searchQuery || "", label: this.props.searchQuery || ""}]}
-                                                options={this.state.autocomplete}
-                                                onFocus={() => this.updateTypeahead()}
-                                                onChange={(selected) => selected.length > 0 && this.updateSearch(selected[0].full)}
-                                                onInputChange={(text, e) => this.updateSearch(text)}/>
-                                        {this.state.datePopup !== null && (
-                                            <DayPicker disabledDays={{
-                                                before: new Date(this.state.datePopup.min * 1000),
-                                                after: new Date(this.state.datePopup.max * 1000)
-                                            }} className="search-date-picker shadow shadow-md"/>
-                                        )}
+                                            </Reference>
+                                            <Popper placement="bottom-start">
+                                                {({ ref, style, placement, arrowProps }) => (
+                                                    <div ref={ref} style={style} date-placement={placement} className="search-date-picker-container">
+                                                        {this.state.datePopup && (
+                                                            <DayPicker disabledDays={{
+                                                                before: new Date(this.state.datePopup.min * 1000),
+                                                                after: new Date(this.state.datePopup.max * 1000)
+                                                            }} className="search-date-picker shadow shadow-md"/>
+                                                        )}
+                                                        <div ref={arrowProps.ref} style={arrowProps.style}/>
+                                                    </div>
+                                                )}
+                                            </Popper>
+                                        </Manager>
                                     </div>
                                     {/*renderInput={(inputProps: any) => (
                                                    <Form.Control {...inputProps}

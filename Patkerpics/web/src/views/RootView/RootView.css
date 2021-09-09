@@ -87,9 +87,13 @@
      */
      display: none;
 }
+.search-date-picker-container {
+    z-index: 2500;
+}
 .search-date-picker {
-    position: absolute;
-    top: calc(100% + 1rem);
+    /* React-popper docs are simultaneously nonexistent and illegible. */
+    transform: translate(-0.5rem, 0.5rem);
+    /* position: absolute; */
+    /* top: calc(100% + 1rem); */
     background-color: var(--light);
-    z-index:20000;
 }

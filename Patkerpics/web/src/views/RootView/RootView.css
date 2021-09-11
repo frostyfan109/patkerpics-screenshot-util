@@ -47,11 +47,11 @@
     display: flex !important;
     justify-content: center;
     align-items: center;
-    height: 70%;
 }
 .change-avatar-modal > .modal-dialog {
-    max-width: 70%;
-    min-width: 70%;
+    /* max-width: 70%; */
+    /* min-width: 70%; */
+    min-width: min(70%, 600px);
     height: 70%;
     margin: 0;
 }
@@ -75,4 +75,25 @@
 .avatar-crop img {
     height: 100%;
     object-fit: contain;
+}
+.rbt.empty > .rbt-menu {
+    /* Hide the menu when there are no suggestions. */
+    display: none !important;
+}
+.rbt-input-hint {
+    /* Gray suggestion text from react-bootstrapt-typeahead 
+     * Disabled because of a bug with overflow where it doesn't
+     * render properly and overlays over the text (making it illegible)
+     */
+     display: none;
+}
+.search-date-picker-container {
+    z-index: 2500;
+}
+.search-date-picker {
+    /* React-popper docs are simultaneously nonexistent and illegible. */
+    transform: translate(-0.5rem, 0.5rem);
+    /* position: absolute; */
+    /* top: calc(100% + 1rem); */
+    background-color: var(--light);
 }

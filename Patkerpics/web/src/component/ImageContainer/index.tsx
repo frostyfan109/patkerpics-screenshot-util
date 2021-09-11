@@ -3,15 +3,26 @@ import { connect } from 'react-redux';
 import classNames from 'classnames';
 import writtenForm from 'number-to-words';
 import { applicationInterface, image as ImageType, userData } from '../../store/reducers/application';
+import { addGlobalAPIError, addImage } from '../../store/actions';
 import './ImageContainer.css';
 import { Card, Button } from 'react-bootstrap';
 import { Dropdown, DropdownMenu, DropdownToggle, DropdownItem } from 'reactstrap';
 import { FaEllipsisV, FaImages, FaCircle } from 'react-icons/fa';
 import { withRouter } from 'react-router-dom';
 import { RouteComponentProps } from 'react-router';
+import Loading from '../Loading';
 import Infinite from 'react-infinite';
+import moment from 'moment';
+import { debounce } from 'throttle-debounce';
 import User from '../../api/user';
 import { APIResponse } from '../../api';
+
+// Set moment.js to start weeks on Monday, rather than Sunday
+moment.updateLocale("en", {
+    week: {
+        dow: 1
+    }
+});
 
 interface ThumbnailProps extends RouteComponentProps {
     image: ImageType
@@ -95,7 +106,7 @@ const Thumbnail = withRouter(class extends Component<ThumbnailProps, { url: stri
         return (
             <Card onClick={() => {
                 this.props.history.push({
-                    pathname : `/image/${this.props.image.id}`
+                    pathname : `/image/${this.props.image.uid}`
                 });
             }} onMouseLeave={() => {
                 this.dropdownRef.current && this.dropdownRef.current.hideDropdown();
@@ -107,8 +118,8 @@ const Thumbnail = withRouter(class extends Component<ThumbnailProps, { url: stri
                     <Hook imageId={this.props.image.id} ref={this.dropdownRef}/>
                 </div>
                 <Card.Body>
-                    <Card.Title title={this.props.image.title}>
-                        {this.props.image.title}
+                    <Card.Title title={this.props.image.title!}>
+                        {this.props.image.title!}
                     </Card.Title>
                 </Card.Body>
             </Card>
@@ -117,25 +128,128 @@ const Thumbnail = withRouter(class extends Component<ThumbnailProps, { url: stri
 });
 
 interface Props {
-    images: applicationInterface["images"],
-    userData: userData,
+    images: applicationInterface["images"]
+    userData: userData
+    searchQuery: string|undefined
     className?: string
+    addGlobalAPIError: Function
+    addImage: Function
 };
 
 interface State {
-
+    loadingSearch: boolean,
+    searchImages: string[] | null
 };
 
 export default connect(
     (state: any) => ({
-        userData: state.application.userData
-    })
+        userData: state.application.userData,
+        searchQuery: state.page.searchQuery
+    }),
+    { addGlobalAPIError, addImage }
 )(class ImageContainer extends Component<Props, State> {
+    constructor(props: Props) {
+        super(props);
+
+        this.state = {
+            loadingSearch: false,
+            searchImages: null
+        };
+
+        this._search = debounce(250, false, this._search.bind(this));
+
+    }
+    private getImages(): ImageType[]|null {
+        if (this.props.images === null) return null;
+        else return this.props.images.filter((image) => image.author.username === this.props.userData?.username);
+    }
+    private getSearchQuery(): string|undefined {
+        return this.getSearchQueryFromProps(this.props);
+    }
+    private getSearchQueryFromProps(props: Props): string|undefined {
+        return props.searchQuery;
+    }
+    private async _search(searchQuery: string) {
+        const response = await User.searchImages(searchQuery);
+        // The search query has changed, so these results are stale.
+        if (searchQuery !== this.props.searchQuery) return;
+        const { message, error, images: imageUIDs } = response;
+        const loadedImages = this.getImages() || [];
+
+        const responses: (APIResponse|null)[] = await Promise.all(imageUIDs.map((uid: string) => {
+            if (!loadedImages.map((im) => im.uid).includes(uid)) {
+                return User.getImage(uid);
+            }
+            return Promise.resolve(null);
+        }));
+        responses.forEach((response) => {
+            if (response === null) return;
+            const { message, error, image } = response;
+            if (error) {
+                console.log(message);
+                this.props.addGlobalAPIError(response);
+            } else {
+                this.props.addImage(image);
+            }
+        });
+
+        this.setState({ loadingSearch: false, searchImages: imageUIDs });
+    }
+    private updateSearch() {
+        const searchQuery = this.getSearchQuery();
+        // console.log("update");
+        this.setState({ loadingSearch: false, searchImages: null });
+        if (searchQuery !== "" && typeof searchQuery !== "undefined") {
+            this.setState({ loadingSearch: true });
+            this._search(searchQuery);
+        }
+    }
+    async componentDidMount() {
+        this.updateSearch();
+    }
+    async componentDidUpdate(prevProps: Props) {
+        if (this.getSearchQuery() !== this.getSearchQueryFromProps(prevProps)) {
+            this.updateSearch();
+        }
+    }
     render() {
+        const images = this.getImages();
+        const searchQuery = this.getSearchQuery();
+        const searching = this.state.loadingSearch || this.state.searchImages !== null;
+        const searchImagesLoaded = this.state.searchImages !== null && images && this.state.searchImages.every((uid) => images.map((_im) => _im.uid).includes(uid));
         return (
             <div className={classNames("ImageContainer", this.props.className)}>
                 {
-                    this.props.images !== null && (this.props.images.length === 0 ? (
+                    searching ? (
+                        this.state.loadingSearch ? (
+                            <Loading loading={true}/>
+                        ) : (
+                            <div className="image-grid-container">
+                                <div className="h5 ml-1" style={{marginBottom: "0.75rem"}}>
+                                    Results for: "{searchQuery}"
+                                </div>
+                                {
+                                    this.state.searchImages!.length > 0 ? (
+                                        <div className="image-grid">
+                                            {
+                                                this.state.searchImages!.map((uid: string, i) => {
+                                                    const image = images?.find((im) => im.uid === uid)!;
+                                                    return (
+                                                        <div key={image.id} className="image-container">
+                                                            <Thumbnail image={image}/>
+                                                        </div>
+                                                    );
+                                                })
+                                            }
+                                        </div>
+                                    ) : (
+                                        <span className="text-muted">No results.</span>
+                                    )
+                                }
+                            </div>
+                        )
+                    ) : (
+                    images !== null && (images.length === 0 ? (
                         <div className="h-100 d-flex justify-content-center align-items-center">
                             <div className="blank-state d-flex flex-column align-items-center">
                                 <span style={{display: "grid", placeItems: "center"}}>
@@ -153,7 +267,7 @@ export default connect(
                             </div> 
                         </div>
                     ) : (() => {
-                        const images: ImageType[] = this.props.images as ImageType[];
+                        // const images: ImageType[] = this.props.images as ImageType[];
                         interface ImageGroups {
                             [key: string]: ImageType[]
                         };
@@ -175,21 +289,46 @@ export default connect(
                             ).getDate();
                             const daysInYear: number = 365;
                             let groupTitle: string;
-                            if (daysPassed === 0) {
-                                groupTitle = "Today";
-                            }
-                            else if (daysPassed < daysInCurrentMonth) {
-                                groupTitle = "This month";
-                            }
-                            else if (daysPassed < daysInYear) {
-                                groupTitle = date.toLocaleString("default", { month : "long" });
-                            }
-                            else {
+                            if (date.getFullYear() == currentDate.getFullYear()) {
+                                if (date.getMonth() == currentDate.getMonth()) {
+                                    if (date.getDay() == currentDate.getDay()) {
+                                        // Today
+                                        groupTitle = "Today";
+                                    } else {
+                                        if (moment(currentDate).week() == moment(date).week()) {
+                                            // Older than today, but during this week
+                                            groupTitle = "This week";
+                                        } else {
+                                            // Older than this week, but during this month
+                                            groupTitle = "This month";
+                                        }
+                                    }
+                                } else {
+                                    // Older than this month, but during this year
+                                    groupTitle = date.toLocaleString("default", { month : "long" });
+                                }
+                            } else {
+                                // Older than this year
                                 const yearsPassed: number = new Date().getFullYear() - date.getFullYear();
                                 const yearsWrittenForm: string = writtenForm.toWords(yearsPassed);
                                 const yearsPassedString: string = yearsWrittenForm[0].toUpperCase() + yearsWrittenForm.slice(1);
                                 groupTitle = yearsPassedString + " " + (yearsPassed > 1 ? "years" : "year") + " ago";
                             }
+                            // if (daysPassed === 0) {
+                            //     groupTitle = "Today";
+                            // }
+                            // else if (daysPassed < daysInCurrentMonth) {
+                            //     groupTitle = "This month";
+                            // }
+                            // else if (daysPassed < daysInYear) {
+                            //     groupTitle = date.toLocaleString("default", { month : "long" });
+                            // }
+                            // else {
+                            //     const yearsPassed: number = new Date().getFullYear() - date.getFullYear();
+                            //     const yearsWrittenForm: string = writtenForm.toWords(yearsPassed);
+                            //     const yearsPassedString: string = yearsWrittenForm[0].toUpperCase() + yearsWrittenForm.slice(1);
+                            //     groupTitle = yearsPassedString + " " + (yearsPassed > 1 ? "years" : "year") + " ago";
+                            // }
                             if (imageGroups.hasOwnProperty(groupTitle)) {
                                 imageGroups[groupTitle].push(image);
                             }
@@ -226,7 +365,7 @@ export default connect(
                                 </div>
                             );
                         });
-                    })())
+                    })()))
                 }
             </div>
         );

@@ -1,6 +1,8 @@
 import os
 import json
 import base64
+from collections import Counter
+from itertools import chain
 from shutil import rmtree
 from sqlalchemy.ext.hybrid import hybrid_property
 from datetime import datetime, timezone
@@ -86,12 +88,38 @@ class UserModel(Model):
         # rather than generated.
         return sum([img.file_size for img in self.get_images()])
 
+    def get_qualifier_data(self):
+        images = self.get_images()
+        tag_values = Counter([tag.name.replace(" ", "+") for tag in chain.from_iterable([image.get_tags() for image in images])])
+        app_values = Counter([image.app.replace(" ", "+") for image in images])
+        # Sort s.t. newest images appear first
+        images.sort(key=lambda image: image.timestamp.timestamp(), reverse=True)
+        newest_image = images[0] if len(images) > 0 else None
+        oldest_image = images[-1] if len(images) > 0 else None
+        return {
+            "qualifier_values": {
+                "tag": [v for (v, freq) in tag_values.most_common()],
+                "app": [v for (v, freq) in app_values.most_common()],
+                "before": [oldest_image.timestamp.timestamp(), newest_image.timestamp.timestamp()],
+                "after": [oldest_image.timestamp.timestamp(), newest_image.timestamp.timestamp()],
+                "date": [oldest_image.timestamp.timestamp(), newest_image.timestamp.timestamp()]
+            }
+
+        }
+
     def serialize(self):
         return {
             "username": self.username,
             "email": self.email,
             "created": self.created.timestamp(),
+            **self.get_qualifier_data(),
             "bytes_used": self.get_bytes_used(),
+            "profile_picture": self.get_profile_picture_b64()
+        }
+
+    def serialize_public(self):
+        return {
+            "username": self.username,
             "profile_picture": self.get_profile_picture_b64()
         }
 
@@ -115,6 +143,10 @@ def generate_image_token():
     else:
         return token
 
+PUBLIC = 0
+HIDDEN = 1
+PRIVATE = 2
+
 class ImageModel(Model):
     __tablename__ = "images"
     "Internal-facing primary key for an image record. Used for nearly all API interactions."
@@ -125,16 +157,18 @@ class ImageModel(Model):
     uid = db.Column(db.String(32), unique=True, nullable=False)
     user_id = db.Column(db.Integer, unique=False, nullable=False)
     filename = db.Column(db.String(255), unique=False, nullable=False)
-    timestamp = db.Column(db.Integer, nullable=False)
+    timestamp = db.Column(db.DateTime, nullable=False)
     title = db.Column(db.String(255), unique=False, nullable=False)
     bit_depth = db.Column(db.Integer, unique=False, nullable=False)
     width = db.Column(db.Integer, unique=False, nullable=False)
     height = db.Column(db.Integer, unique=False, nullable=False)
     # Stores file size in bytes
     file_size = db.Column(db.Integer, unique=False, nullable=False)
+    private = db.Column(db.Integer, unique=False, nullable=False)
     # file_type = db.Column(db.String, unique=False, nullable=False)
     ocr_text = db.Column(db.String, nullable=True, default=None)
     ocr_boxes = db.Column(db.String, nullable=True, default=None)
+    app = db.Column(db.String, nullable=False)
 
     """
     Runs an OCR scan on the image using Tesseract and
@@ -165,7 +199,7 @@ class ImageModel(Model):
         file_extension = image.filename.split(".")[-1].lower()
         pil_img = Image.open(image)
 
-        self.timestamp = datetime.now(tz=timezone.utc).timestamp()
+        self.timestamp = datetime.now(tz=timezone.utc)
         # self.filename = str(len(os.listdir(self.get_dir()))) + "." + image.filename.split(".")[-1];
         # If the image mode is unknown for whatever reason, null it.
         self.bit_depth = ({'1':1, 'L':8, 'P':8, 'RGB':"24", 'RGBA':32, 'CMYK':32, 'YCbCr':32, 'I':32, 'F':32}).get(pil_img.mode, -1)
@@ -173,6 +207,7 @@ class ImageModel(Model):
         self.height = pil_img.height
         # self.file_type = mime_type
         self.uid = generate_image_token()
+        self.private = 0
         # Technically redundant now but too much work to remove.
         self.filename = self.uid + "." + image.filename.split(".")[-1]
         # This column can be quickly derived from the `filename` column,
@@ -185,6 +220,10 @@ class ImageModel(Model):
 
 
         super().save()
+
+    @hybrid_property
+    def tags(self):
+        return TagModel.query.filter_by(image_id=self.image_id)
 
     def delete(self):
         os.remove(self.get_path())
@@ -200,23 +239,23 @@ class ImageModel(Model):
     def get_path(self):
         return os.path.join(self.get_dir(), self.filename)
 
-    def serialize(self):
+    def serialize(self, details=True, hide_next_prev=False):
         images = ImageModel.query.filter_by(user_id=self.user_id).order_by("timestamp").all()
         index = images.index(self)
         if index == len(images) - 1:
             next = None
         else:
-            next = images[index+1].image_id
+            next = images[index+1].uid
         if index == 0:
             prev = None
         else:
-            prev = images[index-1].image_id
+            prev = images[index-1].uid
         return {
                 "id": self.image_id,
                 # Format timestamp for usage with JS Date API
-                "timestamp": self.timestamp * 1000,
-                "title": self.title,
-                "tags": [tag.name for tag in self.get_tags()],
+                "timestamp": self.timestamp.timestamp() * 1000,
+                "title": self.title if details else None,
+                "tags": [tag.name for tag in self.get_tags()] if details else None,
                 "uid": self.uid,
                 "bit_depth": self.bit_depth,
                 "width": self.width,
@@ -224,10 +263,13 @@ class ImageModel(Model):
                 # "file_type": self.file_type,
                 "filename": self.filename,
                 "file_size": self.file_size,
+                "app": self.app,
                 "ocr_text": self.ocr_text,
                 "ocr_boxes": self.ocr_boxes if self.ocr_boxes == None else json.loads(self.ocr_boxes),
-                "next": next,
-                "prev": prev
+                "private": self.private,
+                "next": next if (details and not hide_next_prev) else None,
+                "prev": prev if (details and not hide_next_prev) else None,
+                "author": UserModel.query.filter_by(id=self.user_id).first().serialize_public()
             }
 
 

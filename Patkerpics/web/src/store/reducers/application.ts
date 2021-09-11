@@ -15,7 +15,7 @@ export interface OCRBoxes {
     word_num: number[]
 }
 
-export interface image {
+export interface image extends privateImageDetails {
     id: number,
     uid: string,
     url: string,
@@ -27,19 +27,43 @@ export interface image {
     filename: string,
     file_size: number,
     timestamp: number,
-    title: string,
-    tags: string[],
-    prev: number|null,
-    next: number|null
+    prev: string|null,
+    next: string|null,
+    private: number,
+    app: string,
+    author: userDataPublic,
 };
+
+interface privateImageDetails {
+    title: string | null,
+    tags: string[] | null
+}
+
+/* Possible values that a search qualifier can take.
+ * I.e. "app": ["Google Chrome", "Spotify", ...]
+ * Since the application doesn't always have access to every image of a user,
+ * this can't be deduced on the client-side.
+ * These values may have to be parsed depending on their type (i.e. "1-1-1970" -> Date(month=1, day=1, year=1970))
+ */
+interface QualifierValues {
+    [qualifier: string]: string[]
+};
+/* Indicates the number of times a possible qualifier value showed up (used for sorting suggestions) */
+interface QualifierValueFrequency {
+    [qualifier: string]: number[]|null
+}
 
 export interface userData {
     username: string,
     email: string,
     created: number,
     bytes_used: number,
-    profile_picture: string | null
+    profile_picture: string | null,
+    qualifier_values: QualifierValues,
+    qualifier_value_frequency: QualifierValueFrequency
 };
+
+type userDataPublic = Partial<userData>;
 
 export interface Keyword {
     name: string,
@@ -74,7 +98,7 @@ export interface ApplicationError {
 
 export interface applicationInterface {
     images: image[],
-    userData: userData | null
+    userData: userData | null,
     fetchedAllImages: boolean,
     errors: ApplicationError[]
 };

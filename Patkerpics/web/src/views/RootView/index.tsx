@@ -24,7 +24,7 @@ class RootView extends Component<RootViewProps, {}> {
                 <Router>
                     <Header/>
                     {/* <div className="view-container flex-grow-1 w-100"> */}
-                        <Routes/>
+                    <Routes/>
                     {/* </div> */}
                 </Router>
             </div>

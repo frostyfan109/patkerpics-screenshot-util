@@ -13,8 +13,9 @@ import ReactTooltip from 'react-tooltip';
 import OutsideClickHandler from 'react-outside-click-handler';
 import { throttle } from 'throttle-debounce';
 import { AuthenticationError, APIResponse } from '../../api';
-import { Accordion, Card, Button, Collapse, ListGroup, ButtonGroup } from 'react-bootstrap';
+import { Accordion, Card, Button, Collapse, ListGroup, ButtonGroup, Modal } from 'react-bootstrap';
 import Avatar from 'react-avatar';
+import { WEBSITE_NAME } from '../../config';
 const InlineEdit = require('react-edit-inline2').default;
 interface P extends RouteComponentProps {
     images: image[]
@@ -44,10 +45,11 @@ interface S {
     // of boxes when rendered image dimensions change due to
     // resizing.
     _imgWidth: number|null,
-    _imgHeight: number|null
+    _imgHeight: number|null,
+    ocrModal: boolean
 }
 
-const KEYWORDS_MAX_DISPLAY: number = 5;
+const KEYWORDS_MAX_DISPLAY: number = 4;
 const KEYWORDS_MIN_SCORE: number = 3;
 const FUZZY_SCORE_CUTOFF: number = .8;
 
@@ -82,7 +84,8 @@ export default connect(
             highlightedText: [],
             highlighting: false,
             _imgWidth: null,
-            _imgHeight: null
+            _imgHeight: null,
+            ocrModal: false
         };
 
         this.loadImage = this.loadImage.bind(this);
@@ -93,14 +96,21 @@ export default connect(
     imageIdFromProps(props: P): number {
         return parseInt((props.match.params as any).id);
     }
+    imageUIDFromProps(props: P): string {
+        return (props.match.params as any).uid;
+    }
     imageId(): number {
-        return this.imageIdFromProps(this.props);
+        return this.getImage()!.id;
+        // return this.imageIdFromProps(this.props);
+    }
+    imageUID(): string {
+        return this.imageUIDFromProps(this.props);
     }
     getImage(): image|undefined {
-        return this.props.images.find((image: image) => image.id === this.imageId());
+        return this.props.images.find((image: image) => image.uid === this.imageUID());
     }
-    switchImage(id: number) {
-        this.props.history.push(`/image/${id}`);
+    switchImage(uid: string) {
+        this.props.history.push(`/image/${uid}`);
     }
     toggleKeyword(keyword: string) {
         const { activeKeywords } = this.state;
@@ -113,7 +123,7 @@ export default connect(
     }
     updateTitle() {
         const image = this.getImage();
-        if (image) document.title = image.title;
+        if (image) document.title = image.title || WEBSITE_NAME;
     }
     async preloadImage(image: image): Promise<void> {
         // This method's purpose is to preload and cache the image data,
@@ -137,9 +147,17 @@ export default connect(
     }
     async loadImage() {
         // this.setState({ imgSrcLoading : true });
-        this.setState({ imgEleLoaded: false, scanningOCR: false, highlightedText: [], highlighting: false, loadingKeywords: false, keywords: null, activeKeywords: [] });
+        this.setState({
+            imgEleLoaded: false,
+            scanningOCR: false,
+            highlightedText: [],
+            highlighting: false,
+            loadingKeywords: false,
+            keywords: null,
+            activeKeywords: []
+        });
         if (this.getImage() === undefined) {
-            const { message, error, image } = await User.getImage(this.imageId());
+            const { message, error, image } = await User.getImage(this.imageUID());
             if (!this.cancelled) {
                 if (error) {
                     console.log(message);
@@ -165,7 +183,7 @@ export default connect(
             console.error(message);
             this.props.addGlobalAPIError(response);
         } else {
-            const currentTags = this.getImage()!.tags;
+            const currentTags = this.getImage()!.tags!;
             // Only show keywords extracted that aren't already tags to avoid errors from trying to upload
             // duplicate tags (and avoid redundancy).
             const keywordsFiltered = keywords.filter((k) => !currentTags.includes(k.name))
@@ -253,6 +271,12 @@ export default connect(
             addingSelectedKeywords: false
         });
     }
+    openOCRModal() {
+        const image = this.getImage();
+        const isAuthor = image && this.props.userData && image.author.username === this.props.userData.username;
+        if (isAuthor && !image!.ocr_boxes) this.scanOCR();
+        this.setState({ ocrModal: true });
+    }
     componentDidMount() {
         this.loadImage().then(() => this.updateTitle());
 
@@ -266,8 +290,12 @@ export default connect(
         }
     }
     async componentDidUpdate(prevProps: P) {
-        if (this.imageIdFromProps(prevProps) !== this.imageId()) {
+        if (this.imageUIDFromProps(prevProps) !== this.imageUID()) {
             await this.loadImage();
+        }
+        if ((this.props.userData !== null && prevProps.userData === null) || (this.props.userData === null && prevProps.userData !== null)) {
+            // Login state changed
+            if (this.getImage() === undefined) await this.loadImage();
         }
         this.updateTitle();
     }
@@ -287,12 +315,14 @@ export default connect(
         //     image = this.props.images.filter((image: image) => image.id === this.imageId())[0];
         //     if (image === undefined) return redirect;
         // }
-        if (this.state.redirect || !this.props.loggedIn) return redirect;
+        if (this.state.redirect) return redirect;
         let image = this.getImage();
+        const isAuthor = image && this.props.userData && image.author.username === this.props.userData.username;
+        const showDetails = image && (image.private === 0 || isAuthor);
         return (
             <div className="ImageView" ref={this._componentRef}>
                 {
-                    (image === undefined || this.props.userData === null || !this.state.preloadImage) ? (
+                    (image === undefined || !this.state.preloadImage) ? (
                         <Loading loading={true}/>
                     ) : (() => {
                         image = image!;
@@ -301,64 +331,70 @@ export default connect(
                             <div className="image-container-top">
                                 <div className="image-container py-3">
                                     {(() => {
-                                        const nextImage: number|null = image.next;
+                                        const nextImage: string|null = image.next;
                                         return (
-                                            <div className="next-image image-arrow">
+                                            <div className="next-image image-arrow" style={{display: isAuthor ? undefined : "none"}}>
                                                 <FaCaretLeft className={nextImage === null ? "disabled" : ""}
                                                              onClick={() => nextImage && this.switchImage(nextImage)}/>
                                             </div>
                                         );
                                     })()}
                                     {/* <div className="image-view-img-container mx-auto"> */}
-                                    <div className="mx-auto d-flex justify-content-center" style={{position: "relative", maxHeight: "100%"}}>
+                                    <div className="mx-auto d-flex justify-content-center" style={{maxHeight: "100%"}}>
                                         <Loading loading={!this.state.imgEleLoaded}/>
-                                        <a href={image.url} target="_blank" className="mx-auto d-flex justify-content-center">
-                                            <img className="image-view-img"
+                                        <div className="mx-auto d-flex justify-content-center">
+                                            <a href={image.url} target="_blank" style={{position: "relative"}}>
+                                                <img className="image-view-img"
                                                 src={image.url}
                                                 ref={this._imageRef}
                                                 style={{display: this.state.imgEleLoaded ? undefined : "none"}}
                                                 onLoad={() => this.setState({ imgEleLoaded : true })}
-                                            />
-                                        </a>
-                                        {
-                                            this._imageRef.current && this.state.highlightedText.map((i) => {
-                                                const img = this._imageRef.current;
-                                                const seg = i + 4;
-                                                const widthRatio = (img!.width / image!.width);
-                                                const heightRatio = (img!.height / image!.height);
-                                                const text = image!.ocr_boxes.text[seg];
-                                                const conf = image!.ocr_boxes.conf[seg];
-                                                const left = image!.ocr_boxes.left[seg] * widthRatio;
-                                                const top = image!.ocr_boxes.top[seg] * heightRatio;
-                                                const width = image!.ocr_boxes.width[seg] * widthRatio;
-                                                const height = image!.ocr_boxes.height[seg] * heightRatio;
-                                                const key = text + "-" + seg;
-                                                return (
-                                                    <React.Fragment key={key}>
-                                                    <div style={{
-                                                            position: "absolute",
-                                                            outline: "2px solid var(--danger)",
-                                                            top: top + "px",
-                                                            left: left + "px",
-                                                            width: width + "px",
-                                                            height: height + "px"
-                                                         }}
-                                                         className="ocr-highlighted-text-segment"
-                                                         data-tip
-                                                         data-for={key}>
-                                                    </div>
-                                                    <ReactTooltip id={key} place="top" effect="solid">
-                                                        Confidence: {Math.round(parseInt(conf))}%
-                                                    </ReactTooltip>
-                                                    </React.Fragment>
-                                                );
-                                            })
-                                        }
+                                                />
+                                                {
+                                                this._imageRef.current && this.state.highlightedText.map((i) => {
+                                                    // When the router props change, the component renders once with
+                                                    // a new image before componentDidUpdate and loadImage are called
+                                                    // and set highlightedText empty.
+                                                    if (!image!.ocr_boxes) return;
+                                                    const img = this._imageRef.current;
+                                                    const seg = i + 4;
+                                                    const widthRatio = (img!.width / image!.width);
+                                                    const heightRatio = (img!.height / image!.height);
+                                                    const text = image!.ocr_boxes.text[seg];
+                                                    const conf = image!.ocr_boxes.conf[seg];
+                                                    const left = image!.ocr_boxes.left[seg] * widthRatio;
+                                                    const top = image!.ocr_boxes.top[seg] * heightRatio;
+                                                    const width = image!.ocr_boxes.width[seg] * widthRatio;
+                                                    const height = image!.ocr_boxes.height[seg] * heightRatio;
+                                                    const key = text + "-" + seg;
+                                                    return (
+                                                        <React.Fragment key={key}>
+                                                        <div style={{
+                                                                position: "absolute",
+                                                                outline: "2px solid var(--danger)",
+                                                                top: top + "px",
+                                                                left: left + "px",
+                                                                width: width + "px",
+                                                                height: height + "px"
+                                                            }}
+                                                            className="ocr-highlighted-text-segment"
+                                                            data-tip
+                                                            data-for={key}>
+                                                        </div>
+                                                        <ReactTooltip id={key} place="top" effect="solid">
+                                                            Confidence: {Math.round(parseInt(conf))}%
+                                                        </ReactTooltip>
+                                                        </React.Fragment>
+                                                    );
+                                                })
+                                            }
+                                            </a>
+                                        </div>
                                     </div>
                                     {(() => {
-                                        const prevImage: number|null = image.prev;
+                                        const prevImage: string|null = image.prev;
                                         return (
-                                            <div className="previous-image image-arrow">
+                                            <div className="previous-image image-arrow" style={{display: isAuthor ? undefined : "none"}}>
                                                 <FaCaretRight className={prevImage === null ? "disabled" : ""}
                                                               onClick={() => prevImage && this.switchImage(prevImage)}/>
                                             </div>
@@ -366,16 +402,18 @@ export default connect(
                                     })()}
                                 </div>
                             </div>
-                            <div className="image-info-container bg-light" style={{"padding": "1.75rem 0"}}>
+                            {showDetails && (<div className="image-info-container bg-light" style={{"padding": "1.75rem 0"}}>
                                 <div className="image-info" style={{fontSize: "18px"}}>
                                     <div className="d-flex align-items-center mb-3">
-                                        <Avatar name={this.props.userData && this.props.userData.username} src={this.props.userData.profile_picture || undefined} className="mr-2" size="36" textSizeRatio={2} round style={{userSelect: "none"}}/>
-                                        <span style={{fontSize: "1em", fontWeight: 600}}>{this.props.userData && this.props.userData.username}</span>
+                                        <Avatar name={image.author.username} src={image.author.profile_picture || undefined} className="mr-2" size="36" textSizeRatio={2} round style={{userSelect: "none"}}/>
+                                        <span style={{fontSize: "1em", fontWeight: 600}}>{image.author.username}</span>
                                     </div>
                                     
                                     {/* <div className="mb-2" style={{fontSize: "1em", fontWeight: 600}}>{image.title}</div> */}
-                                    <div className="d-flex align-items-center mb-2">
-                                        <InlineEdit className=""
+                                    {showDetails && (<div className="d-flex align-items-center mb-2">
+                                        {
+                                            isAuthor ? (
+                                                <InlineEdit className=""
                                                     activeClassName="cursor-initial"
                                                     style={{
                                                         fontSize: "1em",
@@ -403,10 +441,18 @@ export default connect(
                                                         }
                                                         catch { this.props.logout(); }
                                                     }}
-                                        />
+                                                />
+                                            ) : (
+                                                <span style={{
+                                                    fontSize: "1em",
+                                                    fontWeight: 600
+                                                }}>{image.title}</span>
+                                            )
+                                        }
                                     </div>
+                                    )}
                                     <div style={{fontSize: ".85em"}}>
-                                        <div className="mb-2">
+                                        <div className="py-1 mb-2">
                                             {
                                                 new Date(image.timestamp).toLocaleDateString("us-EN", {
                                                     year: 'numeric',
@@ -414,6 +460,9 @@ export default connect(
                                                     day: 'numeric'
                                                 })
                                             }
+                                        </div>
+                                        <div className="py-1 mb-2">
+                                            {image.app}
                                         </div>
                                         <div className="py-1 mb-2">
                                             <a href="javascript:void(0);" onClick={() => this.setState({ detailsOpen: !this.state.detailsOpen})}>Details</a>
@@ -425,136 +474,154 @@ export default connect(
                                                 </div>
                                             </Collapse>
                                         </div>
-                                        <div className="mt-1">
-                                            {
-                                                image.ocr_text !== null ? (
-                                                    <Card className="d-none d-md-flex">
-                                                        {/* Note: OCR component is hidden on mobile devices due to the difficulty of rendering
-                                                            such a bulky module into a small horizontal space fluidly. Could be updated in the
-                                                            future so that the rendering is completely different on mobile devices.  */}
-                                                        <Card.Header as="h6"
-                                                                     className="d-flex align-items-center justify-content-between p-2 hidden">
-                                                            <span className="ml-2">OCR</span>
-                                                            <div>
-                                                                <ButtonGroup>
-                                                                <Button className=""
-                                                                        variant={this.state.scanningOCR ? "outline-primary" : "primary"}
-                                                                        disabled={this.state.scanningOCR}
-                                                                        size="sm"
-                                                                        onClick={() => !this.state.scanningOCR && this.scanOCR(true)}>
-                                                                    {this.state.scanningOCR ? "Loading" : "Rescan"}
-                                                                </Button>
-                                                                <Button className=""
-                                                                        variant="outline-secondary"
-                                                                        size="sm"
-                                                                        onClick={() => this.clearOCR()}>
-                                                                    Clear
-                                                                </Button>
-                                                                </ButtonGroup>
-                                                                <Button className="ml-2"
-                                                                        variant={this.state.highlighting ? "outline-danger" : "success"}
-                                                                        size="sm"
-                                                                        onClick={() => this.setState({ highlighting: !this.state.highlighting })}>
-                                                                    {this.state.highlighting ? "Stop" : "Highlight"}
-                                                                </Button>
-                                                            </div>
-                                                        </Card.Header>
-                                                        <Card.Body className="p-3">
-                                                            {
-                                                                image.ocr_text === "" ? (
-                                                                    <span>No text found.</span>
-                                                                ) : (
-                                                                    <pre className="mb-0 ocr-text-container" data-highlighting={this.state.highlighting}>
-                                                                        {/* Ignore first 4 elements (empty whitespace) */}
-                                                                        {image.ocr_boxes.text.slice(4).map((text, i) => (
-                                                                            text === "" ? <br key={i}/> : (
-                                                                            <React.Fragment key={i}>
-                                                                            <span className="ocr-highlightable-text-component"
-                                                                                  style={this.state.highlightedText.includes(i) ? {
-                                                                                      color: "white",
-                                                                                      backgroundColor: "var(--danger)",
-                                                                                      outline: "3px solid var(--danger)"
-                                                                                  } : undefined}
-                                                                                  onClick={() => {
-                                                                                      if (!this.state.highlighting) return;
-                                                                                      let { highlightedText } = this.state;
-                                                                                      if (highlightedText.includes(i)) highlightedText = highlightedText.filter((t) => t !== i);
-                                                                                      else highlightedText.push(i);
-                                                                                      this.setState({ highlightedText });
-                                                                                  }}>
-                                                                                {text}
-                                                                            </span><span> </span>
-                                                                            </React.Fragment>
-                                                                            )
-                                                                        ))}
-                                                                    </pre>
-                                                                )
-                                                            }
-                                                        </Card.Body>
-                                                        {
-                                                            image.ocr_text !== "" && (
-                                                                <Card.Footer>
-                                                                    {
-                                                                        this.state.keywords !== null ? (
-                                                                            this.state.keywords.length === 0 ? (
-                                                                                <span>No new keywords found.</span>
-                                                                            ) : (
-                                                                                <div className="d-flex align-items-center justify-content-between">
-                                                                                    <ButtonGroup className="flex-wrap mr-2">
-                                                                                        {
-                                                                                            this.state.keywords.sort((a,b) => b.score - a.score)
-                                                                                                               .slice(0, KEYWORDS_MAX_DISPLAY)
-                                                                                                               .map((keyword) => {
-                                                                                                const variant = keyword.fuzzed ? "success" : "primary";
-                                                                                                return (
-                                                                                                    <Button key={keyword.name}
-                                                                                                        variant={(this.state.activeKeywords.includes(keyword.name) ? variant : "outline-" + variant) as any}
-                                                                                                        style={{whiteSpace: "nowrap"}}
-                                                                                                        onClick={() => this.toggleKeyword(keyword.name)}>
-                                                                                                        {keyword.name}
-                                                                                                    </Button>
-                                                                                                );
-                                                                                            })
-                                                                                        }
-                                                                                    </ButtonGroup>
-                                                                                    <div className="d-flex align-items-center text-nowrap flex-wrap justify-content-center">
-                                                                                        <Button variant="primary" disabled={this.state.addingSelectedKeywords} size="sm" onClick={() => this.addSelectedTags()}>Add</Button>
-                                                                                        <Button className="m-1" variant="outline-secondary" size="sm" onClick={() => this.setState({ keywords: null, activeKeywords: [], addingSelectedKeywords: false })}>
-                                                                                            Clear all
-                                                                                        </Button>
-                                                                                    </div>
-                                                                                </div>
-                                                                            )
-                                                                        ) : (
-                                                                            this.state.loadingKeywords ? (
-                                                                                <span className="text-muted loading">Loading keywords</span>
-                                                                            ) : (
-                                                                                <a href="javascript:void(0);" onClick={() => this.extractKeywords()}>Run keyword extraction</a>
-                                                                            )
-                                                                        )
-                                                                    }
-                                                                </Card.Footer>
-                                                            )
-                                                        }
-                                                        {/* <Card.Footer className="bg-light">
-                                                            
-                                                        </Card.Footer> */}
-                                                    </Card>
-                                                ) : (this.state.scanningOCR ? (
-                                                    <div className="text-muted loading">Scanning</div>
-                                                ) : (
-                                                    <a href="javascript:void(0);" onClick={() => this.scanOCR()}>Scan OCR</a>
-                                                ))
-                                            }
-                                        </div>
-                                        <div className="mt-3"><TagContainer image={image}/></div>
+                                        {(isAuthor || image.ocr_boxes !== null) && (<div className="pt-1 mb-2">
+                                            <a href="javascript:void(0);" onClick={() => this.openOCRModal()}>
+                                                OCR
+                                            </a>
+                                        </div>)}
+                                        {isAuthor && <div className="mt-3"><TagContainer image={image}/></div>}
                                     </div>
                                 </div>
                             </div>
+                            )}
                             </>
                         );
                     })()
                 }
+                <Modal show={this.state.ocrModal} onHide={() => this.setState({ ocrModal : false })}>
+                    <Modal.Header closeButton>
+                        <Modal.Title>OCR</Modal.Title>
+                    </Modal.Header>
+                    {
+                    image && image.ocr_text !== null ? (
+                        <>
+                        {/* Note: OCR component is hidden on mobile devices due to the difficulty of rendering
+                            such a bulky module into a small horizontal space fluidly. Could be updated in the
+                            future so that the rendering is completely different on mobile devices.  */}
+                        <Modal.Body>
+                        {
+                            image.ocr_text === "" ? (
+                                <span>No text found.</span>
+                            ) : (
+                                <pre className="mb-0 ocr-text-container" data-highlighting={this.state.highlighting}>
+                                    {/* Ignore first 4 elements (empty whitespace) */}
+                                    {image.ocr_boxes.text.slice(4).map((text, i) => (
+                                        text === "" ? <br key={i}/> : (
+                                        <React.Fragment key={i}>
+                                        <span className="ocr-highlightable-text-component"
+                                                style={this.state.highlightedText.includes(i) ? {
+                                                    color: "white",
+                                                    backgroundColor: "var(--danger)",
+                                                    outline: "3px solid var(--danger)"
+                                                } : undefined}
+                                                onClick={() => {
+                                                    if (!this.state.highlighting) return;
+                                                    let { highlightedText } = this.state;
+                                                    if (highlightedText.includes(i)) highlightedText = highlightedText.filter((t) => t !== i);
+                                                    else highlightedText.push(i);
+                                                    this.setState({ highlightedText });
+                                                }}>
+                                            {text}
+                                        </span><span> </span>
+                                        </React.Fragment>
+                                        )
+                                    ))}
+                                </pre>
+                            )
+                        }
+                        </Modal.Body>
+                        {
+                            isAuthor && image.ocr_text !== "" && (
+                                <div className="p-2">
+                                    {
+                                        this.state.keywords !== null && (
+                                            this.state.keywords.length === 0 ? (
+                                                <span>No new keywords found.</span>
+                                            ) : (
+                                                <div className="d-flex align-items-center justify-content-between">
+                                                    <ButtonGroup className="flex-wrap mr-2">
+                                                        {
+                                                            this.state.keywords.sort((a,b) => b.score - a.score)
+                                                                                .slice(0, KEYWORDS_MAX_DISPLAY)
+                                                                                .map((keyword) => {
+                                                                const variant = keyword.fuzzed ? "success" : "primary";
+                                                                return (
+                                                                    <Button key={keyword.name}
+                                                                        variant={(this.state.activeKeywords.includes(keyword.name) ? variant : "outline-" + variant) as any}
+                                                                        style={{whiteSpace: "nowrap"}}
+                                                                        onClick={() => this.toggleKeyword(keyword.name)}>
+                                                                        {keyword.name}
+                                                                    </Button>
+                                                                );
+                                                            })
+                                                        }
+                                                    </ButtonGroup>
+                                                    <div className="d-flex align-items-center text-nowrap flex-wrap justify-content-center">
+                                                        <Button variant="primary" disabled={this.state.addingSelectedKeywords} size="sm" onClick={() => this.addSelectedTags()}>Add</Button>
+                                                        <Button className="m-1" variant="outline-secondary" size="sm" onClick={() => this.setState({ keywords: null, activeKeywords: [], addingSelectedKeywords: false })}>
+                                                            Clear all
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            )
+                                        )
+                                    }
+                                </div>
+                            )
+                        }
+                        {
+                            <Modal.Footer>
+                                {false && (
+                                <ButtonGroup style={{display: isAuthor ? undefined : "none"}}>
+                                    <Button className=""
+                                            variant={this.state.scanningOCR ? "outline-primary" : "primary"}
+                                            disabled={this.state.scanningOCR}
+                                            size="sm"
+                                            onClick={() => !this.state.scanningOCR && this.scanOCR(true)}>
+                                        {this.state.scanningOCR ? "Loading" : "Rescan"}
+                                    </Button>
+                                    <Button className=""
+                                            variant="outline-secondary"
+                                            size="sm"
+                                            onClick={() => this.clearOCR()}>
+                                        Clear
+                                    </Button>
+                                </ButtonGroup>
+                                )}
+                                {image.ocr_text !== "" && <Button className="ml-1"
+                                        variant={this.state.highlighting ? "outline-danger" : "success"}
+                                        size="sm"
+                                        onClick={() => this.setState({ highlighting: !this.state.highlighting })}>
+                                    {this.state.highlighting ? "Stop" : "Highlight"}
+                                </Button>}
+                                {isAuthor && image.ocr_text !== null && image.ocr_text !== "" && this.state.keywords === null && (
+                                    <Button className="ml-1"
+                                            variant="primary"
+                                            size="sm"
+                                            disabled={this.state.loadingKeywords}
+                                            onClick={() => this.extractKeywords()}>
+                                        {this.state.loadingKeywords ? "Loading" : "Extract keywords"}
+                                    </Button>
+                                )}
+                                <Button className="ml-1"
+                                        variant="outline-secondary"
+                                        size="sm"
+                                        onClick={() => this.setState({ ocrModal : false })}>
+                                    Close
+                                </Button>
+                            </Modal.Footer>
+                        }
+                        {/* <Card.Footer className="bg-light">
+                            
+                        </Card.Footer> */}
+                        </>
+                    ) : (this.state.scanningOCR ? (
+                        <Modal.Body className="p-5">
+                            <Loading loading={true}/>
+                        </Modal.Body>
+                    ) : null)
+                    }
+                </Modal>
             </div>
         );
     }
@@ -598,13 +665,13 @@ const TagContainer = connect(
     render() {
         return (
             <div className="tag-container">
-                {this.props.image.tags.map((tag,) => <Tag id={this.props.image.id} key={tag} name={tag} image={this.props.image}/>)}
+                {this.props.image.tags!.map((tag,) => <Tag id={this.props.image.id} key={tag} name={tag} image={this.props.image}/>)}
                 <OutsideClickHandler onOutsideClick={() => {
                     this.state.active === State.INPUT && this.setActive(State.INACTIVE);
                 }}>
                 <Tag closeButton={false} className="close-tag border border-primary text-primary bg-white" name={
                     this.state.active === State.INACTIVE ? (
-                        <FaPlus style={{fontSize: "1rem"}}/>
+                        <><FaPlus style={{fontSize: "1rem"}}/><span className="ml-1" style={{fontSize: "1rem"}}>Tag</span></>
                     ) : (this.state.active === State.INPUT ? (
                         <input type="text" autoFocus onKeyDown={async (e: React.KeyboardEvent) => {
                             if (e.keyCode === 27) {
@@ -622,7 +689,7 @@ const TagContainer = connect(
                                     } else {
                                         this.props.updateImage({
                                             ...this.props.image,
-                                            tags: this.props.image.tags.concat(this.state.input)
+                                            tags: this.props.image.tags!.concat(this.state.input)
                                         })
                                         // this.props.updateTag(this.props.image.id, this.state.input, UpdateTagType.ADD);
                                     }
@@ -689,7 +756,7 @@ const Tag = connect(
                     ) : (
                         <>
                         {this.props.name}
-                        {this.props.closeButton && <div className="tag-close-button-container ml-2"><FaTimes className="" onClick={async () => {
+                        {this.props.closeButton && <div className="tag-close-button-container"><FaTimes className="" onClick={async () => {
                             this.setState({ loading : true });
                             try {
                                 const result = await User.removeTag(this.props.id!, this.props.name as string);
@@ -701,7 +768,7 @@ const Tag = connect(
                                     this.props.updateImage({
                                         ...this.props.image,
                                         // In this situation, it is guarenteed that `image` is defined
-                                        tags: this.props.image!.tags.filter((tag) => tag !== this.props.name)
+                                        tags: this.props.image!.tags!.filter((tag) => tag !== this.props.name)
                                     });
                                 }
                             } catch {

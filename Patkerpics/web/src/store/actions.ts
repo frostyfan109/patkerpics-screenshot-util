@@ -5,7 +5,7 @@ import {
     SET_APPLICATION_STATE, setApplicationStateAction, addImagesAction,
     ADD_IMAGES, removeImageAction, REMOVE_IMAGE, updateImageAction,
     UPDATE_IMAGE, fetchedAllImagesAction, FETCHED_ALL_IMAGES,
-    ADD_GLOBAL_ERROR, updateUserDataAction, UPDATE_USER_DATA
+    ADD_GLOBAL_ERROR, updateUserDataAction, UPDATE_USER_DATA, SET_APPLICATION_DATA, SET_SEARCH_QUERY
 } from './actionTypes';
 import User, { Callbacks } from '../api/user';
 import Cookies from 'js-cookie';
@@ -14,6 +14,7 @@ import { applicationInterface, initialState as defaultApplicationState, image, u
 import { async } from 'q';
 import status from 'statuses';
 import { APIResponse, AuthenticationError } from '../api';
+import { ApplicationData } from './reducers/page';
 
 export function setLoggingIn(): setLoggingInAction {
     return {
@@ -41,6 +42,20 @@ export function addGlobalAPIError(response: APIResponse) {
         type: ADD_GLOBAL_ERROR,
         applicationError: error
     }
+}
+
+function setApplicationData(applicationData: ApplicationData) {
+    return {
+        type: SET_APPLICATION_DATA,
+        applicationData
+    };
+}
+
+export function setSearchQuery(searchQuery: string|undefined) {
+    return {
+        type: SET_SEARCH_QUERY,
+        searchQuery
+    };
 }
 
 function setApplicationState(applicationState: object): setApplicationStateAction {
@@ -78,11 +93,22 @@ export function pageLoad(): ThunkAction<Promise<void>, any, any, any> {
         if (User.loggedIn) {
             dispatch(authenticateLogin());
         }
+        const response = await User.getApplicationData();
+        const { message, error, application_data: applicationData } = response;
+        if (error) {
+            console.log(message);
+            dispatch(addGlobalAPIError(
+                response
+            ));
+        } else {
+            dispatch(setApplicationData(applicationData));
+        }
     }
 }
 function authenticateLogin(): ThunkAction<Promise<void>, any, any, any> {
     return async (dispatch: ThunkDispatch<any, any, any>, getState: Function) => {
         dispatch(setLoggedIn(true));
+        dispatch(setApplicationState(defaultApplicationState));
         dispatch(fetchUserData());
         const authenticationFailed = (error: AuthenticationError): void => { dispatch(logout()); };
         User.pollImages(
